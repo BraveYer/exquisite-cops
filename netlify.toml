@@ -1,0 +1,10 @@
+# Netlify config for a Next.js app that lives in the web/ subfolder.
+
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = ".next"
+
+# Official plugin: makes App Router, API routes and NextAuth work on Netlify.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
