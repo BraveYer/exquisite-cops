@@ -1,14 +1,41 @@
-'use client';
-import { SessionProvider } from "next-auth/react";
+import type { Metadata } from "next";
 import "./globals.css";
+import Footer from '../components/Footer';
+import MusicPlayer from '../components/MusicPlayer';
+import SupportChat from '../components/SupportChat';
+import Sidebar from '../components/Sidebar';
+import ActiveMatchBanner from '../components/ActiveMatchBanner';
+import BroadcastBanner from '../components/BroadcastBanner';
+import NotificationBell from '../components/NotificationBell';
+import WelcomeModal from '../components/WelcomeModal';
+import { Providers } from "./providers";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const metadata: Metadata = {
+  title: "Exquisite COPS",
+  description: "Competitive Matchmaking Platform",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+        <Providers>
+          <Sidebar />
+          <ActiveMatchBanner />
+          <NotificationBell />
+          <div className="app-content pt-14 md:pt-0">
+            <BroadcastBanner />
+            {children}
+            <Footer />
+          </div>
+        </Providers>
+        <MusicPlayer />
+        <SupportChat />
+        <WelcomeModal />
       </body>
     </html>
   );

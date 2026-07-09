@@ -1,0 +1,48 @@
+# ============================================================
+#  Exquisite COPS — .gitignore (rădăcina repo-ului)
+#  Acoperă atât botul (rădăcină) cât și site-ul (web/)
+# ============================================================
+
+# --- Secrete / environment (CEL MAI IMPORTANT) ---
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.production.local
+web/.env
+web/.env.local
+web/.env.*.local
+
+# --- Node ---
+node_modules/
+web/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Next.js ---
+.next/
+web/.next/
+out/
+web/out/
+web/build/
+next-env.d.ts
+
+# --- Logs / runtime ---
+*.log
+logs/
+pids/
+*.pid
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Diverse ---
+*.pem
+coverage/
+.cache/
