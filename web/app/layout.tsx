@@ -8,6 +8,7 @@ import ActiveMatchBanner from '../components/ActiveMatchBanner';
 import BroadcastBanner from '../components/BroadcastBanner';
 import NotificationBell from '../components/NotificationBell';
 import WelcomeModal from '../components/WelcomeModal';
+import LinkAccountBanner from '../components/LinkAccountBanner';
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({
           <NotificationBell />
           <div className="app-content pt-14 md:pt-0">
             <BroadcastBanner />
+            <LinkAccountBanner />
             {children}
             <Footer />
           </div>
