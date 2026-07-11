@@ -66,7 +66,7 @@ export default function MusicPlayer() {
   const current = tracks[Math.min(index, tracks.length - 1)];
 
   return (
-    <div className="fixed bottom-4 right-4 z-[56]">
+    <div className="fixed bottom-4 right-4 z-50">
       <audio
         ref={audioRef}
         src={current?.src}
