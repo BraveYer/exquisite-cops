@@ -38,6 +38,31 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return { won: m.winner === (onA ? 'A' : 'B'), map: m.map || 'Unknown' };
     });
 
+    // Aggregate K/D/A across matches that have staff-entered stats.
+    let totalK = 0;
+    let totalD = 0;
+    let totalA = 0;
+    let statMatches = 0;
+    for (const m of rawMatches) {
+      const st = m.playerStats?.[discordId];
+      if (st) {
+        totalK += st.k || 0;
+        totalD += st.d || 0;
+        totalA += st.a || 0;
+        statMatches++;
+      }
+    }
+    const kd = statMatches > 0
+      ? {
+          kills: totalK,
+          deaths: totalD,
+          assists: totalA,
+          matches: statMatches,
+          ratio: totalD > 0 ? Number((totalK / totalD).toFixed(2)) : totalK,
+          avgKills: Number((totalK / statMatches).toFixed(1)),
+        }
+      : null;
+
     // Last 20 for the history list.
     const history = rawMatches.slice(0, 20).map((m: any) => {
       const onA = (m.teamA || []).some((p: any) => p.discordId === discordId);
@@ -153,6 +178,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       level: player.level ?? 0,
       verified: !!player.verified,
       supporter: !!player.supporterUntil && new Date(player.supporterUntil).getTime() > Date.now(),
+      kd,
       elo: player.elo ?? 1000,
       wins,
       losses,

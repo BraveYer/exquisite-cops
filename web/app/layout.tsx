@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Footer from '../components/Footer';
 import MusicPlayer from '../components/MusicPlayer';
@@ -14,8 +14,33 @@ import LinkAccountBanner from '../components/LinkAccountBanner';
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Exquisite COPS",
-  description: "Competitive Matchmaking Platform",
+  metadataBase: new URL("https://exquisitecops.netlify.app"),
+  title: {
+    default: "Exquisite COPS",
+    template: "%s · Exquisite COPS",
+  },
+  description:
+    "Competitive Critical Ops matchmaking — ranked matches, an ELO ladder, clubs, tournaments and more. Queue up, climb the ranks, and prove you're the best.",
+  keywords: ["Critical Ops", "matchmaking", "competitive", "ranked", "ELO", "tournaments", "clubs", "esports", "Exquisite COPS"],
+  applicationName: "Exquisite COPS",
+  openGraph: {
+    type: "website",
+    siteName: "Exquisite COPS",
+    title: "Exquisite COPS",
+    description: "Competitive Critical Ops matchmaking — ranked matches, an ELO ladder, clubs and tournaments. Queue up and climb the ranks.",
+    url: "https://exquisitecops.netlify.app",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "Exquisite COPS",
+    description: "Competitive Critical Ops matchmaking — ranked matches, an ELO ladder, clubs and tournaments.",
+  },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0e",
 };
 
 export default function RootLayout({

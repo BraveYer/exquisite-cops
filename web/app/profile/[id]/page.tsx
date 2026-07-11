@@ -32,6 +32,7 @@ type Profile = {
     mostPlayedMap: { map: string; games: number } | null;
   };
   level?: number;
+  kd?: { kills: number; deaths: number; assists: number; matches: number; ratio: number; avgKills: number } | null;
   verified?: boolean;
   elo?: number;
   wins?: number;
@@ -531,6 +532,34 @@ export default function ProfilePage() {
                     sub={p.stats.mostPlayedMap ? `${p.stats.mostPlayedMap.games} games` : undefined}
                   />
                 </div>
+
+                {p.kd && (
+                  <>
+                    <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">Combat · K/D</h2>
+                    <div className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                      <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+                        <div>
+                          <p className="text-4xl font-black text-cyan-400">{p.kd.ratio}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">K/D ratio</p>
+                        </div>
+                        <div className="flex flex-1 flex-wrap gap-x-6 gap-y-3">
+                          {[
+                            { label: 'Kills', v: p.kd.kills },
+                            { label: 'Deaths', v: p.kd.deaths },
+                            { label: 'Assists', v: p.kd.assists },
+                            { label: 'Avg kills', v: p.kd.avgKills },
+                          ].map((s) => (
+                            <div key={s.label}>
+                              <p className="text-2xl font-black text-white">{s.v}</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{s.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-4 text-[11px] text-gray-600">Across {p.kd.matches} match{p.kd.matches === 1 ? '' : 'es'} with recorded stats.</p>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
