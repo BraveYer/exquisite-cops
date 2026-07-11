@@ -76,8 +76,16 @@ export default function MusicPlayer() {
       />
 
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0b0f]/90 p-1.5 shadow-[0_8px_30px_-8px_rgba(0,0,0,0.8)] backdrop-blur-md">
+        <button
+          onClick={toggle}
+          title={playing ? 'Pause' : 'Play'}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-400 text-black transition-colors hover:bg-cyan-300"
+        >
+          {playing ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+        </button>
+
         {open ? (
-          <div className="flex items-center gap-2 pl-2">
+          <div className="flex items-center gap-2 pr-2">
             <button onClick={() => go(-1)} title="Previous" className="text-gray-400 transition-colors hover:text-white">
               <SkipBack size={16} />
             </button>
@@ -103,18 +111,10 @@ export default function MusicPlayer() {
             </button>
           </div>
         ) : (
-          <button onClick={() => setOpen(true)} title="Music" className="pl-2 text-gray-400 transition-colors hover:text-cyan-400">
+          <button onClick={() => setOpen(true)} title="Music" className="pr-2 text-gray-400 transition-colors hover:text-cyan-400">
             <Music2 size={16} />
           </button>
         )}
-
-        <button
-          onClick={toggle}
-          title={playing ? 'Pause' : 'Play'}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-400 text-black transition-colors hover:bg-cyan-300"
-        >
-          {playing ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-        </button>
       </div>
     </div>
   );
