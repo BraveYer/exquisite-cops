@@ -9,6 +9,7 @@ import BroadcastBanner from '../components/BroadcastBanner';
 import NotificationBell from '../components/NotificationBell';
 import UpdatesBell from '../components/UpdatesBell';
 import WelcomeModal from '../components/WelcomeModal';
+import UpdatePopup from '../components/UpdatePopup';
 import LinkAccountBanner from '../components/LinkAccountBanner';
 import { Providers } from "./providers";
 
@@ -40,6 +41,7 @@ export default function RootLayout({
         <MusicPlayer />
         <SupportChat />
         <WelcomeModal />
+        <UpdatePopup />
       </body>
     </html>
   );

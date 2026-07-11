@@ -76,7 +76,7 @@ export default function UpdatesBell() {
   };
 
   return (
-    <div ref={ref} className="fixed right-28 top-3 z-[60] md:right-16">
+    <div ref={ref} className="fixed right-28 top-[3px] z-[60] md:right-16 md:top-3">
       <button onClick={toggle} className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-gray-300 transition-colors hover:text-white" title="What's New">
         <Sparkles size={18} />
         {hasNew && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#070709]" />}

@@ -83,7 +83,7 @@ export default function NotificationBell() {
   if (!session) return null;
 
   return (
-    <div ref={ref} className="fixed right-14 top-3 z-[60] md:right-5">
+    <div ref={ref} className="fixed right-14 top-[3px] z-[60] md:right-5 md:top-3">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"
