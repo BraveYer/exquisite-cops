@@ -4,13 +4,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import {
-  Home, Trophy, User, Settings, Shield, LogOut, Menu, X, Award, History, Users, Newspaper,
+  Home, Trophy, User, Settings, Shield, LogOut, Menu, X, Award, History, Users, Newspaper, Sparkles,
   MessageCircle, Swords, Medal, ChevronDown, PanelLeftClose, PanelLeftOpen, ShoppingBag, Coins, Ticket, Radar, Search,
 } from 'lucide-react';
 import { getTier } from '../lib/tiers';
 
 type UserInfo = { accountId?: number; elo?: number; staffLevel?: string | null; copsName?: string };
-type Item = { href: string; label: string; icon: any; badge?: number };
+type Item = { href: string; label: string; icon: any; badge?: number; dot?: boolean };
 
 const COLLAPSE_KEY = 'exq_sidebar_collapsed';
 const GROUPS_KEY = 'exq_sidebar_groups';
@@ -25,6 +25,20 @@ export default function Sidebar() {
   const [dmUnread, setDmUnread] = useState(0);
   const [ep, setEp] = useState<number | null>(null);
   const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
+  const [newUpdates, setNewUpdates] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        setNewUpdates(Number(localStorage.getItem('exq_updates_latest') || 0) > Number(localStorage.getItem('exq_updates_seen') || 0));
+      } catch {
+        /* ignore */
+      }
+    };
+    check();
+    window.addEventListener('exq-updates', check);
+    return () => window.removeEventListener('exq-updates', check);
+  }, []);
 
   // Restore persisted UI state
   useEffect(() => {
@@ -108,6 +122,7 @@ export default function Sidebar() {
     { href: '/lfg', label: 'LFG', icon: Radar },
     ...(ff('messages') ? [{ href: '/messages', label: 'Messages', icon: MessageCircle, badge: dmUnread }] : []),
     ...(ff('clubs') ? [{ href: '/clans', label: 'Clubs', icon: Swords }] : []),
+    { href: '/updates', label: "What's New", icon: Sparkles, dot: true },
   ];
   const bottomItems: Item[] = [
     { href: '/settings', label: 'Settings', icon: Settings },
@@ -138,6 +153,7 @@ export default function Sidebar() {
         }`}
       >
         <Icon size={18} /> {l.label}
+        {l.dot && newUpdates && <span className="ml-1 h-2 w-2 rounded-full bg-red-500" />}
         {(l.badge ?? 0) > 0 && (
           <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-500 px-1.5 text-[11px] font-black text-black">
             {(l.badge as number) > 99 ? '99+' : l.badge}

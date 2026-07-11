@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, ShieldAlert, Users, Activity, Radio, Swords, Trophy, Medal, Shield, Coins, TrendingUp } from 'lucide-react';
 import PageBackground from '../../../components/PageBackground';
 import AdminMatchStats from '../../../components/AdminMatchStats';
+import AdminUpdates from '../../../components/AdminUpdates';
 
 type Stats = {
   players: { total: number; verified: number; active7: number; active30: number; searchingNow: number };
@@ -172,6 +173,8 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            <AdminUpdates />
 
             <AdminMatchStats />
           </div>
