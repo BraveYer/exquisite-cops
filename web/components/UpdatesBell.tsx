@@ -82,7 +82,7 @@ export default function UpdatesBell() {
         {hasNew && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#070709]" />}
       </button>
       {open && (
-        <div className="absolute right-0 top-12 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c12]/[0.98] shadow-2xl backdrop-blur">
+        <div className="fixed inset-x-3 top-14 overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c12]/[0.98] shadow-2xl backdrop-blur md:absolute md:inset-x-auto md:right-0 md:top-12 md:w-80">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <span className="flex items-center gap-2 text-sm font-black text-white"><Sparkles size={15} className="text-cyan-400" /> What&apos;s New</span>
             <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white"><X size={15} /></button>
