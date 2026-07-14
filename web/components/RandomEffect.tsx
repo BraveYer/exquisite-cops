@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 // "hehe so random xP" — original recreation of the 2000s scene aesthetic:
 // a black & white checkerboard with chaotic icons (cat skulls, hearts, stars,
@@ -15,7 +15,7 @@ export default function RandomEffect() {
   const COLORS = ['#ff3ea5', '#b6ff3e', '#3ee8ff', '#ffe83e', '#ffffff'];
 
   // Icon path builders (drawn around 0,0 in a ~ -14..14 box).
-  const ICONS: Record<string, JSX.Element> = {
+  const ICONS: Record<string, ReactElement> = {
     catskull: (
       <g>
         <path d="M -13 -6 L -8 -14 L -3 -7 Z M 13 -6 L 8 -14 L 3 -7 Z" />
