@@ -9,6 +9,11 @@ import TierBadge from '../../../components/TierBadge';
 import PageBackground from '../../../components/PageBackground';
 import ReportPanel from '../../../components/ReportPanel';
 import { CosmeticStyles, nameClass } from '../../../components/ProfileCosmetics';
+import CommendPanel from '../../../components/CommendPanel';
+import ResultCard from '../../../components/ResultCard';
+import HighlightButton from '../../../components/HighlightButton';
+import ViewerCount from '../../../components/ViewerCount';
+import LeagueBadge from '../../../components/LeagueBadge';
 import { MAP_POOL } from '../../../lib/maps';
 
 type TeamPlayer = { discordId: string; copsName?: string; elo?: number; avatar?: string | null; accountId?: number | null; nameStyle?: string | null; stats?: { k: number; d: number; a: number } | null };
@@ -247,6 +252,18 @@ export default function MatchPage() {
             <div className="mb-2 text-center text-sm font-bold uppercase tracking-[0.3em] text-cyan-500">Match</div>
             <h1 className="mb-8 text-center text-5xl font-black italic tracking-tighter">#{match.matchId}</h1>
 
+            {!isParticipant && live && (
+              <div className="mb-8 flex items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/[0.06] px-4 py-2.5 text-sm font-black uppercase tracking-widest text-red-300">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                </span>
+                Spectating live
+              </div>
+            )}
+
+            <ViewerCount matchId={id} active={match.status !== 'completed' && match.status !== 'cancelled'} />
+
             <div className="mb-10 flex flex-wrap items-center justify-center gap-3">
               {match.map && match.status !== 'drafting' && match.status !== 'veto' && (
                 <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-300">
@@ -257,6 +274,8 @@ export default function MatchPage() {
                 {String(match.status).replace('_', ' ')}
               </span>
             </div>
+
+            <LeagueBadge matchId={id} />
 
             {/* Draft room (captains picking) */}
             {match.status === 'drafting' && (
@@ -363,6 +382,14 @@ export default function MatchPage() {
                 ) : null}
               </div>
             )}
+
+            {match.status === 'completed' && <CommendPanel matchId={id} myId={myId} participants={allParticipants} />}
+
+            {match.status === 'completed' && (
+              <ResultCard matchId={id} map={match.map} winner={match.winner} teamA={match.teamA || []} teamB={match.teamB || []} />
+            )}
+
+            {match.status === 'completed' && <HighlightButton matchId={id} />}
 
             {/* Live: reporting happens on Discord */}
             {live && (

@@ -44,6 +44,10 @@ export function CosmeticStyles() {
       .cos-theme-lucky { background:radial-gradient(80px 60px at 25% 25%, #a8e6b066, transparent 60%), radial-gradient(90px 70px at 75% 35%, #ffb3d166, transparent 62%), radial-gradient(90px 80px at 50% 95%, #cbb6ff55, transparent 60%), linear-gradient(180deg,#151029,#100b20); border:1px solid #ffffff12; }
       .cos-theme-rawr { background:radial-gradient(80px 60px at 25% 30%, #ff2d9566, transparent 60%), radial-gradient(80px 70px at 78% 70%, #5cff5c55, transparent 62%), linear-gradient(140deg,#16001b,#1c0014); box-shadow:inset 0 0 30px -8px #ff2d9533; border:1px solid #ffffff12; }
       .cos-theme-zen { background:radial-gradient(60px 50px at 68% 28%, #bfe6ffcc, transparent 62%), radial-gradient(70px 60px at 80% 75%, #ff3b6b44, transparent 62%), linear-gradient(180deg,#060a1a,#0a1030 55%,#120a26); box-shadow:inset 0 0 30px -10px #7ff0ff33; border:1px solid #ffffff12; }
+      .cos-theme-sheep { background:radial-gradient(50px 50px at 78% 26%, #ffd9a8cc, #ff9ec755 46%, transparent 66%), linear-gradient(180deg,#251441,#160c2b); box-shadow:inset 0 0 30px -10px #ff9ec744; border:1px solid #ffffff12; }
+      .cos-theme-stage-orange { background:radial-gradient(46px 40px at 50% 0%, #ffd36b77, transparent 60%), radial-gradient(38px 34px at 28% 66%, #FF924E55, transparent 62%), radial-gradient(30px 30px at 74% 54%, #ffd36b44, transparent 60%), linear-gradient(180deg,#1a1206,#0a0702); border:1px solid #ffffff12; }
+      .cos-theme-stage-teal { background:radial-gradient(46px 40px at 50% 0%, #ffd36b77, transparent 60%), radial-gradient(38px 34px at 28% 66%, #8CBA9255, transparent 62%), radial-gradient(30px 30px at 74% 54%, #ffd36b44, transparent 60%), linear-gradient(180deg,#0d1512,#050807); border:1px solid #ffffff12; }
+      .cos-theme-random { background:radial-gradient(13px 13px at 30% 32%, #ff3ea5dd, transparent 62%), radial-gradient(12px 12px at 72% 68%, #b6ff3edd, transparent 62%), repeating-conic-gradient(#0e0e0e 0% 25%, #cfcfcf 0% 50%); background-size:auto,auto,22px 22px; border:1px solid #ffffff12; }
       /* themed avatar frames */
       .cos-frame-watching { border-radius:9999px; animation:cosFrWatch 3.5s ease-in-out infinite; }
       @keyframes cosFrWatch { 0%,100%{box-shadow:0 0 0 2px #6a5a3a,0 0 10px #ffd47a66} 50%{box-shadow:0 0 0 2px #8a7a4a,0 0 22px #fff6d8cc} }
@@ -56,6 +60,14 @@ export function CosmeticStyles() {
       .cos-frame-rawr { border-radius:9999px; animation:cosFrRawr 0.9s steps(2,end) infinite; }
       @keyframes cosFrRawr { 0%,100%{box-shadow:0 0 0 2px #ff2d95,0 0 16px #ff2d95cc} 50%{box-shadow:0 0 0 2px #66ff66,0 0 16px #66ff66cc} }
       .cos-frame-zen { border-radius:9999px; animation:cosFrZen 4s steps(1,end) infinite; }
+      .cos-frame-sheep { border-radius:9999px; animation:cosFrSheep 3.4s ease-in-out infinite; }
+      .cos-frame-stage-orange { border-radius:9999px; animation:cosFrStageO 3s ease-in-out infinite; }
+      @keyframes cosFrStageO { 0%,100%{box-shadow:0 0 0 2px #ffd36b, 0 0 16px #ff924e99} 50%{box-shadow:0 0 0 2px #ff924e, 0 0 22px #ffd36bcc} }
+      .cos-frame-stage-teal { border-radius:9999px; animation:cosFrStageT 3s ease-in-out infinite; }
+      @keyframes cosFrStageT { 0%,100%{box-shadow:0 0 0 2px #ffd36b, 0 0 16px #8CBA9299} 50%{box-shadow:0 0 0 2px #8CBA92, 0 0 22px #ffd36bcc} }
+      .cos-frame-random { border-radius:9999px; animation:cosFrRandom 0.8s steps(4,end) infinite; }
+      @keyframes cosFrRandom { 0%{box-shadow:0 0 0 2px #ff3ea5, 0 0 14px #ff3ea5aa} 25%{box-shadow:0 0 0 2px #b6ff3e, 0 0 14px #b6ff3eaa} 50%{box-shadow:0 0 0 2px #3ee8ff, 0 0 14px #3ee8ffaa} 75%{box-shadow:0 0 0 2px #ffe83e, 0 0 14px #ffe83eaa} }
+      @keyframes cosFrSheep { 0%,100%{box-shadow:0 0 0 2px #ff9ec7, 0 0 16px #ff9ec799} 50%{box-shadow:0 0 0 2px #ffe6a8, 0 0 20px #ffd9a8cc} }
       @keyframes cosFrZen { 0%,88%,100%{box-shadow:0 0 0 2px #7ff0ff,0 0 12px #7ff0ff99} 90%{box-shadow:-2px 0 0 2px #ff3b6b, 2px 0 0 2px #7ff0ff, 0 0 16px #7ff0ff} 92%{box-shadow:0 0 0 2px #7ff0ff,0 0 12px #7ff0ff99} }
       /* themed name styles */
       .cos-name-watching { color:#fff6d8 !important; text-shadow:0 0 10px #ffd47a99; }
@@ -64,6 +76,10 @@ export function CosmeticStyles() {
       .cos-name-lucky { background:linear-gradient(90deg,#a8e6b0,#ffb3d1,#cbb6ff,#a8e6b0); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; animation:cosPrism 6s linear infinite; }
       .cos-name-rawr { color:#ff2d95 !important; text-shadow:0 0 8px #66ff6699, 0 0 12px #ff2d9599; }
       .cos-name-zen { color:#7ff0ff !important; text-shadow:1.5px 0 #ff3b6baa, -1.5px 0 #7ff0ffaa, 0 0 10px #7ff0ff66; }
+      .cos-name-sheep { background:linear-gradient(90deg,#ff9ec7,#ff5fa8,#c77dff,#ff9ec7); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; animation:cosPrism 5s linear infinite; }
+      .cos-name-stage-orange { background:linear-gradient(90deg,#ffe6a8,#ff924e,#ffd36b,#ffe6a8); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; animation:cosPrism 4s linear infinite; }
+      .cos-name-stage-teal { background:linear-gradient(90deg,#ffe6a8,#8CBA92,#ffd36b,#ffe6a8); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; animation:cosPrism 4s linear infinite; }
+      .cos-name-random { background:linear-gradient(90deg,#ff3ea5,#b6ff3e,#3ee8ff,#ffe83e,#ff3ea5); background-size:250% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; animation:cosPrism 2.5s linear infinite; }
       .cos-page-watching { background:radial-gradient(1000px 720px at 50% 40%, #0b0b13 0%, #060608 55%, #030304 100%), #030304; }
       .cos-page-watching::before, .cos-page-watching::after { content:''; position:fixed; left:50%; top:44%; width:5px; height:7px; border-radius:50%; background:#ffe9c8; transform:translate(-50%,-50%); pointer-events:none; }
       .cos-page-watching::before { box-shadow:-260px -90px 5px 1px #fff2d0, -244px -90px 5px 1px #fff2d0, 210px -50px 5px 1px #ffd6d6, 226px -50px 5px 1px #ffd6d6, -150px 130px 5px 1px #fff2d0, -134px 130px 5px 1px #fff2d0, 300px 170px 5px 1px #ffd6d6, 316px 170px 5px 1px #ffd6d6; animation:cosWatchA 5.5s infinite; }
@@ -85,6 +101,10 @@ const FRAME: Record<string, string> = {
   frame_lucky: 'cos-frame-lucky',
   frame_rawr: 'cos-frame-rawr',
   frame_zen: 'cos-frame-zen',
+  frame_sheep: 'cos-frame-sheep',
+  frame_stage_orange: 'cos-frame-stage-orange',
+  frame_stage_teal: 'cos-frame-stage-teal',
+  frame_random: 'cos-frame-random',
 };
 const NAME: Record<string, string> = {
   name_gold: 'cos-name-gold',
@@ -96,6 +116,10 @@ const NAME: Record<string, string> = {
   name_lucky: 'cos-name-lucky',
   name_rawr: 'cos-name-rawr',
   name_zen: 'cos-name-zen',
+  name_sheep: 'cos-name-sheep',
+  name_stage_orange: 'cos-name-stage-orange',
+  name_stage_teal: 'cos-name-stage-teal',
+  name_random: 'cos-name-random',
 };
 const THEME: Record<string, string> = {
   theme_grid: 'cos-theme-grid',
@@ -108,6 +132,10 @@ const THEME: Record<string, string> = {
   theme_lucky: 'cos-theme-lucky',
   theme_rawr: 'cos-theme-rawr',
   theme_zen: 'cos-theme-zen',
+  theme_sheep: 'cos-theme-sheep',
+  theme_stage_orange: 'cos-theme-stage-orange',
+  theme_stage_teal: 'cos-theme-stage-teal',
+  theme_random: 'cos-theme-random',
 };
 
 export function frameClass(id?: string | null) {

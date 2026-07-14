@@ -112,6 +112,14 @@ const commands = [
     .setName('profile')
     .setDescription('Get a link to your profile, or another player\'s')
     .addUserOption(o => o.setName('player').setDescription('The player (defaults to you)').setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('history')
+    .setDescription('Show a player\'s last 5 matches')
+    .addUserOption(o => o.setName('player').setDescription('The player (defaults to you)').setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('stats')
+    .setDescription('Show a player\'s combat stats (K/D, best map, peak ELO)')
+    .addUserOption(o => o.setName('player').setDescription('The player (defaults to you)').setRequired(false)),
 ].map(c => c.toJSON());
 
 // =================== HELPERS ===================
@@ -319,6 +327,7 @@ async function postResult(match) {
     .setTimestamp();
 
   await ch.send({ embeds: [embed] });
+  await Match.updateOne({ matchId: match.matchId }, { $set: { resultPosted: true } }).catch(() => {});
 }
 
 async function createMatchChannel(match) {
@@ -462,6 +471,43 @@ client.once(Events.ClientReady, async () => {
   // Mirror Discord staff roles into Mongo for the website's /admin gate.
   syncStaffLevels();
   setInterval(syncStaffLevels, 5 * 60 * 1000);
+
+  // Heartbeat for the public /status page — proves the bot is alive.
+  const BOOT_TS = Date.now();
+  const heartbeat = async () => {
+    try {
+      await mongoose.connection.db.collection('botStatus').updateOne(
+        { _id: 'bot' },
+        { $set: { lastHeartbeat: new Date(), guilds: client.guilds.cache.size, startedAt: new Date(BOOT_TS), tag: client.user.tag } },
+        { upsert: true }
+      );
+    } catch (e) {
+      /* non-fatal */
+    }
+  };
+  heartbeat();
+  setInterval(heartbeat, 45000);
+
+  // Auto-post results for matches that were completed on the website.
+  // (Discord-button completions already post instantly via postResult.)
+  // Gated to matches completed after this boot so we don't flood on restart.
+  setInterval(async () => {
+    try {
+      const pending = await Match.find({
+        status: 'completed',
+        resultPosted: { $ne: true },
+        completedAt: { $gte: new Date(BOOT_TS) },
+      })
+        .sort({ completedAt: 1 })
+        .limit(5)
+        .lean();
+      for (const m of pending) {
+        await postResult(m);
+      }
+    } catch (e) {
+      console.error('Results auto-post poll failed:', e);
+    }
+  }, 30000);
 
   setInterval(async () => {
     if (radarBusy) return;          // prevent overlapping ticks from grabbing the same players
@@ -755,7 +801,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .setTitle(player.copsName || target.username)
       .setThumbnail(target.displayAvatarURL())
       .addFields(
-        { name: 'Rank', value: `**${tierName(player.elo ?? 1000)}**`, inline: true },
+        { name: 'Rank', value: games < 5 ? `**Unranked** · ${games}/5 placements` : `**${tierName(player.elo ?? 1000)}**`, inline: true },
         { name: 'ELO', value: `**${player.elo ?? 1000}**`, inline: true },
         { name: 'Position', value: `#${higher + 1}`, inline: true },
         { name: 'Wins', value: `${wins}`, inline: true },
@@ -791,7 +837,90 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .setColor(0x22d3ee)
       .setTitle(`${player.copsName || target.username}'s profile`)
       .setThumbnail(target.displayAvatarURL())
-      .setDescription(`**${tierName(player.elo ?? 1000)}** · ${player.elo ?? 1000} ELO · ${player.wins || 0}W/${player.losses || 0}L\n\n[View full profile on the website](${url})`)
+      .setDescription(`**${(player.gamesPlayed || (player.wins || 0) + (player.losses || 0)) < 5 ? 'Unranked' : tierName(player.elo ?? 1000)}** · ${player.elo ?? 1000} ELO · ${player.wins || 0}W/${player.losses || 0}L\n\n[View full profile on the website](${url})`)
+      .setFooter({ text: 'Exquisite Cops' });
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  if (interaction.commandName === 'history') {
+    await interaction.deferReply();
+    const target = interaction.options.getUser('player') || interaction.user;
+    const player = await Player.findOne({ discordId: target.id });
+    if (!player) return interaction.editReply(`❌ **${target.username}** is not linked yet (\`/link\`).`);
+    const matches = await Match.find({
+      status: 'completed',
+      $or: [{ 'teamA.discordId': target.id }, { 'teamB.discordId': target.id }],
+    }).sort({ completedAt: -1 }).limit(5).lean();
+    if (!matches.length) return interaction.editReply(`**${player.copsName || target.username}** hasn't played any matches yet.`);
+    const lines = matches.map((m) => {
+      const onA = (m.teamA || []).some((p) => p.discordId === target.id);
+      const team = onA ? 'A' : 'B';
+      const won = m.winner === team;
+      const ch = m.result && m.result.changes && m.result.changes.find((c) => c.discordId === target.id);
+      const delta = ch && typeof ch.newElo === 'number' && typeof ch.oldElo === 'number' ? ch.newElo - ch.oldElo : null;
+      const deltaStr = delta != null ? ` · ${delta >= 0 ? '+' : ''}${delta} ELO` : '';
+      return `${won ? '🟢 **W**' : '🔴 **L**'} — ${m.map || 'Unknown'}${deltaStr}`;
+    });
+    const embed = new EmbedBuilder()
+      .setColor(0x22d3ee)
+      .setTitle(`${player.copsName || target.username} — Recent matches`)
+      .setThumbnail(target.displayAvatarURL())
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: 'Exquisite Cops' });
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  if (interaction.commandName === 'stats') {
+    await interaction.deferReply();
+    const target = interaction.options.getUser('player') || interaction.user;
+    const player = await Player.findOne({ discordId: target.id });
+    if (!player) return interaction.editReply(`❌ **${target.username}** is not linked yet (\`/link\`).`);
+    const matches = await Match.find({
+      status: 'completed',
+      $or: [{ 'teamA.discordId': target.id }, { 'teamB.discordId': target.id }],
+    }).lean();
+    let k = 0, d = 0, a = 0, statGames = 0;
+    let peak = player.elo ?? 1000;
+    const mapAgg = {};
+    for (const m of matches) {
+      const ps = m.playerStats && m.playerStats[target.id];
+      if (ps) { k += ps.k || 0; d += ps.d || 0; a += ps.a || 0; statGames++; }
+      const ch = m.result && m.result.changes && m.result.changes.find((c) => c.discordId === target.id);
+      if (ch) {
+        if (typeof ch.newElo === 'number') peak = Math.max(peak, ch.newElo);
+        if (typeof ch.oldElo === 'number') peak = Math.max(peak, ch.oldElo);
+      }
+      const onA = (m.teamA || []).some((p) => p.discordId === target.id);
+      const team = onA ? 'A' : 'B';
+      if (m.map) {
+        mapAgg[m.map] = mapAgg[m.map] || { w: 0, g: 0 };
+        mapAgg[m.map].g++;
+        if (m.winner === team) mapAgg[m.map].w++;
+      }
+    }
+    const wins = player.wins || 0;
+    const losses = player.losses || 0;
+    const games = player.gamesPlayed || wins + losses;
+    const wr = games > 0 ? Math.round((wins / games) * 100) : 0;
+    const kd = d > 0 ? (k / d).toFixed(2) : k.toFixed(2);
+    let bestMap = null;
+    for (const [map, s] of Object.entries(mapAgg)) {
+      if (s.g < 3) continue;
+      const rate = s.w / s.g;
+      if (!bestMap || rate > bestMap.rate) bestMap = { map, rate };
+    }
+    const embed = new EmbedBuilder()
+      .setColor(0x22d3ee)
+      .setTitle(`${player.copsName || target.username} — Stats`)
+      .setThumbnail(target.displayAvatarURL())
+      .addFields(
+        { name: 'ELO', value: `**${player.elo ?? 1000}**`, inline: true },
+        { name: 'Peak ELO', value: `**${peak}**`, inline: true },
+        { name: 'Win rate', value: `${wr}% (${wins}W/${losses}L)`, inline: true },
+        { name: 'K/D', value: statGames > 0 ? `**${kd}** (${k}/${d}/${a})` : '—', inline: true },
+        { name: 'Best map', value: bestMap ? `${bestMap.map} (${Math.round(bestMap.rate * 100)}%)` : '—', inline: true },
+        { name: 'Matches', value: `${games}`, inline: true },
+      )
       .setFooter({ text: 'Exquisite Cops' });
     return interaction.editReply({ embeds: [embed] });
   }

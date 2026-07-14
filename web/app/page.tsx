@@ -11,6 +11,8 @@ import ChatBox from '../components/ChatBox';
 import SeasonBanner from '../components/SeasonBanner';
 import LandingPage from '../components/LandingPage';
 import PartyPanel, { Party } from '../components/PartyPanel';
+import DailyStreakCard from '../components/DailyStreakCard';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import { getTier } from '../lib/tiers';
 
 const MATCH_SIZE = 10; // keep in sync with the bot's MAX_PLAYERS (5v5)
@@ -343,6 +345,14 @@ export default function HomePage() {
                     <span className="text-2xl text-gray-400">%</span>
                   </p>
                 </div>
+              </div>
+
+              {/* Getting started checklist (new users) */}
+              <OnboardingChecklist />
+
+              {/* Daily streak */}
+              <div className="mb-8">
+                <DailyStreakCard />
               </div>
 
               {/* Search button */}

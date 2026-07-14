@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { rateLimit } from '../../../lib/rateLimit';
 import { getServerSession } from 'next-auth/next';
 import { getDb } from '../../../lib/mongodb';
 import { authOptions } from '../../../lib/auth';
-import { COSMETICS, getCosmetic, getPack, MISSIONS, DAILY_BONUS, ACHIEVEMENTS, dailyReward, SUPPORTER } from '../../../lib/shop';
+import { COSMETICS, getCosmetic, getPack, getBundle, BUNDLES, isAvailable, dailyDeals, dealPrice, dailyResetSeconds, MISSIONS, DAILY_BONUS, ACHIEVEMENTS, dailyReward, SUPPORTER } from '../../../lib/shop';
 import { notify } from '../../../lib/notify';
 
 function dayKey(d = new Date()) {
@@ -174,6 +175,13 @@ export async function GET(req: Request) {
       dailyBonus: DAILY_BONUS,
       nextDailyReward: dailyReward(nextStreak || 1),
       supporter,
+      dailyDeals: dailyDeals(),
+      dealResetSeconds: dailyResetSeconds(),
+      bundles: BUNDLES.map((b) => {
+        const owned = (eco?.items || []) as string[];
+        const ownedCount = b.items.filter((id) => owned.includes(id)).length;
+        return { id: b.id, name: b.name, desc: b.desc, items: b.items, ep: b.ep, usd: b.usd, rarity: b.rarity, ownedCount, owned: ownedCount === b.items.length, from: b.from || null, until: b.until || null };
+      }),
     });
   } catch {
     return NextResponse.json({ balance: 0, items: [], equipped: { frame: null, name: null, theme: null }, missions: [], dailyClaimable: false });
@@ -190,12 +198,30 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const action = (body?.action || '').toString();
 
+    if (action === 'buyBundle') {
+      const bundle = getBundle((body?.bundleId || '').toString());
+      if (!bundle) return NextResponse.json({ error: 'Bundle not found' }, { status: 404 });
+      if (!isAvailable(bundle)) return NextResponse.json({ error: 'This bundle is no longer available' }, { status: 400 });
+      const owned = eco.items || [];
+      const missing = bundle.items.filter((id) => !owned.includes(id));
+      if (missing.length === 0) return NextResponse.json({ error: 'You already own everything in this bundle' }, { status: 400 });
+      if ((eco.balance ?? 0) < bundle.ep) return NextResponse.json({ error: 'Not enough EP' }, { status: 400 });
+      await db.collection('economy').updateOne(
+        { discordId: myId },
+        { $inc: { balance: -bundle.ep }, $addToSet: { items: { $each: bundle.items } } } as any
+      );
+      return NextResponse.json({ ok: true, granted: missing });
+    }
+
     if (action === 'buy') {
       const item = getCosmetic((body?.itemId || '').toString());
       if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+      if (!isAvailable(item)) return NextResponse.json({ error: 'This item is no longer available' }, { status: 400 });
       if ((eco.items || []).includes(item.id)) return NextResponse.json({ error: 'Already owned' }, { status: 400 });
-      if ((eco.balance ?? 0) < item.price) return NextResponse.json({ error: 'Not enough EP' }, { status: 400 });
-      await db.collection('economy').updateOne({ discordId: myId }, { $inc: { balance: -item.price }, $addToSet: { items: item.id } });
+      const dp = dealPrice(item.id);
+      const cost = dp != null ? dp : item.price;
+      if ((eco.balance ?? 0) < cost) return NextResponse.json({ error: 'Not enough EP' }, { status: 400 });
+      await db.collection('economy').updateOne({ discordId: myId }, { $inc: { balance: -cost }, $addToSet: { items: item.id } });
       return NextResponse.json({ ok: true });
     }
 
@@ -261,6 +287,8 @@ export async function POST(req: Request) {
     }
 
     if (action === 'gift') {
+      const rl = rateLimit(`gift:${myId}`, 5, 60000);
+      if (!rl.ok) return NextResponse.json({ error: `Slow down — wait ${rl.retryAfter}s.` }, { status: 429 });
       const toAcc = Number(body?.to);
       const amount = Math.floor(Number(body?.amount));
       if (!Number.isFinite(toAcc) || !Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Invalid gift' }, { status: 400 });

@@ -19,6 +19,7 @@ type Row = {
   club?: { id: string; tag: string; color?: string | null } | null;
   nameStyle?: string | null;
   frame?: string | null;
+  kd?: { ratio: number; kills: number; deaths: number; matches: number } | null;
 };
 
 function ClubTag({ club, className = '' }: { club?: { id: string; tag: string; color?: string | null } | null; className?: string }) {
@@ -41,7 +42,7 @@ const rankAccent = (i: number) => {
   return 'text-gray-500';
 };
 
-function PodiumCard({ row, place }: { row: Row; place: number }) {
+function PodiumCard({ row, place, metric = 'elo' }: { row: Row; place: number; metric?: 'elo' | 'kd' }) {
   const ring = place === 1 ? '#facc15' : place === 2 ? '#cbd5e1' : '#d97706';
   const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉';
   const cardW = place === 1 ? 'w-28 sm:w-44' : 'w-24 sm:w-36';
@@ -65,7 +66,7 @@ function PodiumCard({ row, place }: { row: Row; place: number }) {
       <p className={`w-full truncate text-sm font-black text-white ${row.club ? 'mb-1' : 'mb-2'}`}><span className={nameClass(row.nameStyle)}>{row.copsName || 'Unknown'}</span></p>
       {row.club && <div className="mb-2"><ClubTag club={row.club} /></div>}
       <TierBadge elo={row.elo ?? 1000} px={20} />
-      <p className={`mt-2 font-black text-cyan-400 ${place === 1 ? 'text-2xl' : 'text-lg'}`}>{row.elo ?? 1000}</p>
+      <p className={`mt-2 font-black text-cyan-400 ${place === 1 ? 'text-2xl' : 'text-lg'}`}>{metric === 'kd' ? (row.kd ? row.kd.ratio.toFixed(2) : '—') : (row.elo ?? 1000)}</p>
     </div>
   );
 
@@ -82,12 +83,17 @@ export default function LeaderboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [seasonName, setSeasonName] = useState<string | null>(null);
+  const [mode, setMode] = useState<'elo' | 'kd'>('elo');
 
   useEffect(() => {
-    fetch('/api/leaderboard')
+    setLoading(true);
+    fetch(`/api/leaderboard?sort=${mode}`)
       .then(r => r.json())
       .then(d => { setRows(Array.isArray(d?.players) ? d.players : []); setLoading(false); })
       .catch(() => setLoading(false));
+  }, [mode]);
+
+  useEffect(() => {
     fetch('/api/season').then(r => (r.ok ? r.json() : null)).then(d => setSeasonName(d?.active?.name ?? null)).catch(() => {});
   }, []);
 
@@ -107,15 +113,27 @@ export default function LeaderboardPage() {
             LEADERBOARD
           </h1>
           <p className="mt-2 text-sm font-bold uppercase tracking-widest text-gray-500">
-            {seasonName ? `${seasonName} · ` : ''}Top 50 by rating
+            {seasonName ? `${seasonName} · ` : ''}Top 50 by {mode === 'kd' ? 'K/D ratio' : 'rating'}
           </p>
+        </div>
+
+        <div className="mb-8 flex justify-center gap-2">
+          {([['elo', 'Rating'], ['kd', 'K/D ratio']] as const).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`rounded-full px-5 py-2 text-xs font-black uppercase tracking-widest transition-colors ${mode === m ? 'bg-cyan-500 text-black' : 'border border-white/10 bg-white/5 text-gray-400 hover:text-white'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {!loading && rows.length > 0 && (
           <div className="mb-10 flex items-end justify-center gap-2 sm:gap-4">
-            {rows[1] && <PodiumCard row={rows[1]} place={2} />}
-            {rows[0] && <PodiumCard row={rows[0]} place={1} />}
-            {rows[2] && <PodiumCard row={rows[2]} place={3} />}
+            {rows[1] && <PodiumCard row={rows[1]} place={2} metric={mode} />}
+            {rows[0] && <PodiumCard row={rows[0]} place={1} metric={mode} />}
+            {rows[2] && <PodiumCard row={rows[2]} place={3} metric={mode} />}
           </div>
         )}
 
@@ -135,7 +153,7 @@ export default function LeaderboardPage() {
               <span className="hidden text-center sm:block">W / L</span>
               <span className="hidden text-center sm:block">Form</span>
               <span className="text-center">Win%</span>
-              <span className="text-right">Rating</span>
+              <span className="text-right">{mode === 'kd' ? 'K/D' : 'Rating'}</span>
             </div>
 
             {rows.map((r, i) => {
@@ -175,7 +193,7 @@ export default function LeaderboardPage() {
                     )}
                   </span>
                   <span className="text-center text-sm font-bold text-gray-300">{winRate}%</span>
-                  <span className="text-right text-lg font-black text-cyan-400">{r.elo ?? 1000}</span>
+                  <span className="text-right text-lg font-black text-cyan-400">{mode === 'kd' ? (r.kd ? r.kd.ratio.toFixed(2) : '—') : (r.elo ?? 1000)}</span>
                 </>
               );
               return r.accountId != null ? (

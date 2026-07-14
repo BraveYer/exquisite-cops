@@ -6,9 +6,19 @@ import { Coins, Gift, Check, Loader2, Zap, ShoppingBag, Flame, Trophy } from 'lu
 import PageBackground from '../../components/PageBackground';
 import { CosmeticStyles, frameClass, nameClass, themeClass } from '../../components/ProfileCosmetics';
 import EpPacks from '../../components/EpPacks';
+import Bundles from '../../components/Bundles';
 import ReferralCard from '../../components/ReferralCard';
 import SupporterCard from '../../components/SupporterCard';
-import { COSMETICS, RARITY_COLOR } from '../../lib/shop';
+import { COSMETICS, RARITY_COLOR, isAvailable, secondsLeft, isSeasonal } from '../../lib/shop';
+
+function fmtLeft(sec: number): string {
+  const d = Math.floor(sec / 86400);
+  if (d >= 1) return `${d}d left`;
+  const h = Math.floor(sec / 3600);
+  if (h >= 1) return `${h}h left`;
+  const m = Math.floor(sec / 60);
+  return `${Math.max(1, m)}m left`;
+}
 
 type Eco = {
   balance: number;
@@ -20,6 +30,8 @@ type Eco = {
   dailyBonus: number;
   streak: number;
   nextDailyReward: number;
+  dailyDeals?: { id: string; price: number; orig: number }[];
+  dealResetSeconds?: number;
 };
 
 function Preview({ id, slot }: { id: string; slot: string }) {
@@ -128,6 +140,63 @@ export default function ShopPage() {
           <div className="flex justify-center py-20 text-cyan-400"><Loader2 className="animate-spin" size={28} /></div>
         ) : tab === 'shop' ? (
           <div>
+            {(() => {
+              const now = Date.now();
+              const active = COSMETICS.filter((c) => isSeasonal(c) && isAvailable(c, now));
+              if (active.length === 0) return null;
+              const soonest = active.map((c) => secondsLeft(c, now)).filter((s): s is number => s != null).sort((a, b) => a - b)[0];
+              return (
+                <div className="mb-8 rounded-2xl border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-500/[0.1] to-transparent p-5">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-black uppercase tracking-widest text-fuchsia-300">⏳ Limited time</h2>
+                    {soonest != null && <span className="text-xs font-black text-fuchsia-300">{fmtLeft(soonest)}</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {active.map((c) => (
+                      <span key={c.id} className="rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 py-1 text-xs font-bold text-fuchsia-100">{c.name}</span>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[11px] text-gray-500">These leave the shop when the timer ends — grab them while you can.</p>
+                </div>
+              );
+            })()}
+            {eco?.dailyDeals && eco.dailyDeals.length > 0 && (
+              <div className="mb-8 rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/[0.08] to-transparent p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-amber-300">🔥 Today&apos;s deals · 25% off</h2>
+                  {typeof eco.dealResetSeconds === 'number' && (
+                    <span className="text-xs font-black text-amber-300">Resets in {Math.floor(eco.dealResetSeconds / 3600)}h {Math.floor((eco.dealResetSeconds % 3600) / 60)}m</span>
+                  )}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {eco.dailyDeals.map((d) => {
+                    const c = COSMETICS.find((x) => x.id === d.id);
+                    if (!c) return null;
+                    const owned = (eco.items || []).includes(c.id);
+                    return (
+                      <div key={d.id} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center">
+                        <div className="mb-2 flex justify-center"><Preview id={c.id} slot={c.slot} /></div>
+                        <p className="truncate text-xs font-bold text-white">{c.name}</p>
+                        <div className="my-1 flex items-center justify-center gap-1.5">
+                          <span className="text-sm font-black text-amber-300">{d.price.toLocaleString()}</span>
+                          <span className="text-[11px] text-gray-500 line-through">{d.orig.toLocaleString()}</span>
+                        </div>
+                        {owned ? (
+                          <p className="text-[11px] font-bold text-gray-500">Owned</p>
+                        ) : (
+                          <button onClick={() => act(c.id, { action: 'buy', itemId: c.id })} disabled={!!busy || balance < d.price} className="w-full rounded-full bg-amber-500 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-black hover:bg-amber-400 disabled:opacity-40">
+                            {busy === c.id ? '…' : balance < d.price ? 'Need EP' : 'Buy'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="mb-8">
+              <Bundles onChanged={load} />
+            </div>
             <div className="mb-4 flex flex-wrap gap-2">
               {([['all', 'All'], ['frame', 'Avatar frames'], ['name', 'Name styles'], ['theme', 'Profile themes']] as const).map(([s, label]) => (
                 <button
@@ -144,16 +213,24 @@ export default function ShopPage() {
               const owned = items.includes(c.id);
               const isEquipped = equipped[c.slot] === c.id;
               const rc = RARITY_COLOR[c.rarity];
+              const seasonal = isSeasonal(c);
+              const avail = isAvailable(c);
+              const left = secondsLeft(c);
               return (
-                <div key={c.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div key={c.id} className={`rounded-2xl border p-4 ${seasonal ? 'border-fuchsia-500/25 bg-fuchsia-500/[0.04]' : 'border-white/10 bg-white/[0.03]'}`}>
                   <div className="flex items-center gap-4">
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-black/30">
                       <Preview id={c.id} slot={c.slot} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-black text-white">{c.name}</p>
                         <span className="rounded px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ color: rc, backgroundColor: `${rc}22` }}>{c.rarity}</span>
+                        {seasonal && (
+                          <span className="rounded-full bg-fuchsia-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+                            {avail ? (left != null ? `⏳ ${fmtLeft(left)}` : 'Limited') : 'Ended'}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-xs text-gray-500">{c.desc}</p>
                       <p className="mt-0.5 text-[11px] font-bold uppercase tracking-widest text-gray-600">{c.slot === 'frame' ? 'Avatar frame' : c.slot === 'theme' ? 'Profile theme' : 'Name style'}</p>
@@ -165,6 +242,8 @@ export default function ShopPage() {
                       <button onClick={() => act(c.id, { action: 'unequip', slot: c.slot })} disabled={!!busy} className="rounded-full border border-cyan-500/40 px-4 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-50">Equipped ✓</button>
                     ) : owned ? (
                       <button onClick={() => act(c.id, { action: 'equip', itemId: c.id })} disabled={!!busy} className="rounded-full bg-white/10 px-4 py-1.5 text-xs font-bold text-white hover:bg-white/20 disabled:opacity-50">Equip</button>
+                    ) : !avail ? (
+                      <button disabled className="rounded-full bg-white/5 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-gray-600">No longer available</button>
                     ) : (
                       <button onClick={() => act(c.id, { action: 'buy', itemId: c.id })} disabled={!!busy || balance < c.price} className="rounded-full bg-cyan-500 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-black hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40">
                         {busy === c.id ? <Loader2 size={13} className="animate-spin" /> : balance < c.price ? 'Need EP' : 'Buy'}
@@ -200,35 +279,43 @@ export default function ShopPage() {
             </div>
 
             {/* Missions */}
-            <div>
-              <h2 className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-gray-400"><Zap size={15} className="text-cyan-400" /> Missions</h2>
-              <div className="space-y-2">
-                {(eco?.missions || []).map((m) => {
-                  const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
-                  return (
-                    <div key={m.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-bold text-white">{m.title}</p>
-                            <span className="rounded px-1.5 py-0.5 text-[10px] font-black uppercase text-gray-500">{m.type}</span>
+            <div className="space-y-6">
+              {(['daily', 'weekly'] as const).map((grp) => {
+                const list = (eco?.missions || []).filter((m) => m.type === grp);
+                if (list.length === 0) return null;
+                const barColor = grp === 'weekly' ? 'bg-violet-500' : 'bg-cyan-500';
+                return (
+                  <div key={grp}>
+                    <h2 className="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-gray-400">
+                      <Zap size={15} className={grp === 'weekly' ? 'text-violet-400' : 'text-cyan-400'} /> {grp === 'weekly' ? 'Weekly missions' : 'Daily missions'}
+                    </h2>
+                    <div className="space-y-2">
+                      {list.map((m) => {
+                        const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+                        return (
+                          <div key={m.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-bold text-white">{m.title}</p>
+                                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                  <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                <p className="mt-1 text-[11px] text-gray-500">{m.progress}/{m.target}</p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="mb-1 flex items-center justify-end gap-1 text-sm font-black text-amber-300"><Coins size={13} className="text-amber-400" /> {m.reward}</p>
+                                <button onClick={() => act(m.id, { action: 'claimMission', missionId: m.id })} disabled={!!busy || !m.claimable} className="rounded-full bg-cyan-500 px-3 py-1 text-xs font-black uppercase tracking-wider text-black hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40">
+                                  {m.claimed ? 'Done' : m.claimable ? 'Claim' : 'Locked'}
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                            <div className="h-full rounded-full bg-cyan-500" style={{ width: `${pct}%` }} />
-                          </div>
-                          <p className="mt-1 text-[11px] text-gray-500">{m.progress}/{m.target}</p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="mb-1 flex items-center justify-end gap-1 text-sm font-black text-amber-300"><Coins size={13} className="text-amber-400" /> {m.reward}</p>
-                          <button onClick={() => act(m.id, { action: 'claimMission', missionId: m.id })} disabled={!!busy || !m.claimable} className="rounded-full bg-cyan-500 px-3 py-1 text-xs font-black uppercase tracking-wider text-black hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40">
-                            {m.claimed ? 'Done' : m.claimable ? 'Claim' : 'Locked'}
-                          </button>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Achievements */}

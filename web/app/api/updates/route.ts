@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth/next';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../../../lib/mongodb';
 import { authOptions } from '../../../lib/auth';
+import { logStaff } from '../../../lib/staffLog';
 
 async function staff() {
   const session = await getServerSession(authOptions);
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
     if (title.length < 2) return NextResponse.json({ error: 'Add a title' }, { status: 400 });
     if (text.length < 2) return NextResponse.json({ error: 'Add some details' }, { status: 400 });
     const r = await ctx.db.collection('updates').insertOne({ title, body: text, version, byId: ctx.myId, byName: ctx.me?.copsName || 'Staff', createdAt: new Date() });
+    logStaff(ctx.db, { actorId: ctx.myId, actorName: ctx.me?.copsName, action: 'post update', details: version ? `${title} (${version})` : title });
     return NextResponse.json({ ok: true, id: String(r.insertedId) });
   } catch {
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
@@ -65,6 +67,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
     }
     await ctx.db.collection('updates').deleteOne({ _id: oid });
+    logStaff(ctx.db, { actorId: ctx.myId, actorName: ctx.me?.copsName, action: 'delete update', details: `#${id.slice(-6)}` });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Database error' }, { status: 500 });

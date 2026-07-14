@@ -16,8 +16,10 @@ type PData = {
   losses?: number;
   winRate?: number;
   gamesPlayed?: number;
+  peakElo?: number;
+  kd?: { ratio: number; avgKills: number; kills: number; deaths: number } | null;
   history?: { result: 'win' | 'loss' }[];
-  stats?: { longestWinStreak?: number; currentStreak?: number; currentStreakType?: 'W' | 'L' | null };
+  stats?: { longestWinStreak?: number; currentStreak?: number; currentStreakType?: 'W' | 'L' | null; bestMap?: { map: string; winRate: number; games: number } | null };
 };
 
 type SearchResult = { accountId: number; copsName: string; elo: number; avatar: string | null };
@@ -147,9 +149,12 @@ function CompareInner() {
 
   const rows: { label: string; a: number; b: number; better: 'high' | 'low'; suffix?: string }[] = aData && bData ? [
     { label: 'ELO', a: aData.elo ?? 0, b: bData.elo ?? 0, better: 'high' },
+    { label: 'Peak ELO', a: aData.peakElo ?? aData.elo ?? 0, b: bData.peakElo ?? bData.elo ?? 0, better: 'high' },
     { label: 'Wins', a: aData.wins ?? 0, b: bData.wins ?? 0, better: 'high' },
     { label: 'Losses', a: aData.losses ?? 0, b: bData.losses ?? 0, better: 'low' },
     { label: 'Win rate', a: aData.winRate ?? 0, b: bData.winRate ?? 0, better: 'high', suffix: '%' },
+    { label: 'K/D ratio', a: aData.kd?.ratio ?? 0, b: bData.kd?.ratio ?? 0, better: 'high' },
+    { label: 'Avg kills', a: aData.kd?.avgKills ?? 0, b: bData.kd?.avgKills ?? 0, better: 'high' },
     { label: 'Games', a: aData.gamesPlayed ?? 0, b: bData.gamesPlayed ?? 0, better: 'high' },
     { label: 'Level', a: aData.level ?? 0, b: bData.level ?? 0, better: 'high' },
     { label: 'Best streak', a: aData.stats?.longestWinStreak ?? 0, b: bData.stats?.longestWinStreak ?? 0, better: 'high' },
@@ -196,6 +201,17 @@ function CompareInner() {
                 </div>
               );
             })}
+            {(aData.stats?.bestMap || bData.stats?.bestMap) && (
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-white/5 px-4 py-3">
+                <div className="text-right text-sm font-black text-gray-300">
+                  {aData.stats?.bestMap ? `${aData.stats.bestMap.map} · ${aData.stats.bestMap.winRate}%` : '—'}
+                </div>
+                <div className="min-w-24 text-center text-[11px] font-black uppercase tracking-widest text-gray-500">Best map</div>
+                <div className="text-left text-sm font-black text-gray-300">
+                  {bData.stats?.bestMap ? `${bData.stats.bestMap.map} · ${bData.stats.bestMap.winRate}%` : '—'}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
               <div className="flex justify-end"><Form history={aData.history} /></div>
               <div className="min-w-24 text-center text-[11px] font-black uppercase tracking-widest text-gray-500">Recent</div>

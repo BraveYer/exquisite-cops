@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
 import { getDb } from '../../../../lib/mongodb';
+import { authOptions } from '../../../../lib/auth';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,6 +24,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     // discordId is used only to look up matches — it is NEVER returned to the client.
     const discordId = player.discordId;
+    const session = await getServerSession(authOptions);
+    const viewerId = (session?.user as any)?.discordId as string | undefined;
     const rawMatches = await db
       .collection('matches')
       .find({
@@ -63,6 +67,53 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         }
       : null;
 
+    // Honor: commends received from other players.
+    const commendDocs = await db.collection('commends').find({ toId: discordId }).toArray();
+    const honorByType: Record<string, number> = {};
+    for (const c of commendDocs as any[]) {
+      if (c.type) honorByType[c.type] = (honorByType[c.type] || 0) + 1;
+    }
+    const honor = { total: commendDocs.length, byType: honorByType };
+
+    // Head-to-head: the viewer's record against this player (opposite teams).
+    let h2h: { wins: number; losses: number; games: number } | null = null;
+    if (viewerId && viewerId !== discordId) {
+      let vWins = 0;
+      let vLosses = 0;
+      let games = 0;
+      for (const m of rawMatches) {
+        const profileOnA = (m.teamA || []).some((p: any) => p.discordId === discordId);
+        const profileTeam = profileOnA ? 'A' : 'B';
+        const viewerOnA = (m.teamA || []).some((p: any) => p.discordId === viewerId);
+        const viewerOnB = (m.teamB || []).some((p: any) => p.discordId === viewerId);
+        const viewerTeam = viewerOnA ? 'A' : viewerOnB ? 'B' : null;
+        if (viewerTeam && viewerTeam !== profileTeam) {
+          games++;
+          if (m.winner === viewerTeam) vWins++;
+          else vLosses++;
+        }
+      }
+      if (games > 0) h2h = { wins: vWins, losses: vLosses, games };
+    }
+
+    // Pinned highlight match.
+    let highlight: { matchId: string; map: string; result: 'win' | 'loss'; date: string | null } | null = null;
+    if (player.highlightMatchId) {
+      const hm = await db.collection('matches').findOne(
+        { matchId: player.highlightMatchId, status: 'completed' },
+        { projection: { matchId: 1, map: 1, winner: 1, completedAt: 1, teamA: 1, teamB: 1 } }
+      );
+      if (hm) {
+        const onA = (hm.teamA || []).some((p: any) => p.discordId === discordId);
+        highlight = {
+          matchId: hm.matchId,
+          map: hm.map || 'Unknown',
+          result: hm.winner === (onA ? 'A' : 'B') ? 'win' : 'loss',
+          date: hm.completedAt ?? null,
+        };
+      }
+    }
+
     // Last 20 for the history list.
     const history = rawMatches.slice(0, 20).map((m: any) => {
       const onA = (m.teamA || []).some((p: any) => p.discordId === discordId);
@@ -94,6 +145,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
     const eloSeries = deltas.length > 0 ? [walk, ...eloAfter] : [currentElo];
 
+    // Highest ELO ever reached (from all recorded matches + current).
+    let peakElo = currentElo;
+    for (const m of rawMatches) {
+      const change = (m.result?.changes || []).find((c: any) => c.discordId === discordId);
+      if (change) {
+        if (typeof change.newElo === 'number') peakElo = Math.max(peakElo, change.newElo);
+        if (typeof change.oldElo === 'number') peakElo = Math.max(peakElo, change.oldElo);
+      }
+    }
+
     // Current streak (from the most recent match).
     let currentStreak = 0;
     let currentStreakType: 'W' | 'L' | null = null;
@@ -122,16 +183,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       mapStats[r.map] = ms;
     }
     let bestMap: { map: string; winRate: number; games: number } | null = null;
+    let worstMap: { map: string; winRate: number; games: number } | null = null;
     let mostPlayedMap: { map: string; games: number } | null = null;
+    const mapBreakdown: { map: string; winRate: number; wins: number; games: number }[] = [];
     for (const [map, ms] of Object.entries(mapStats)) {
       const wr = ms.games > 0 ? Math.round((ms.wins / ms.games) * 100) : 0;
+      mapBreakdown.push({ map, winRate: wr, wins: ms.wins, games: ms.games });
       if (!bestMap || wr > bestMap.winRate || (wr === bestMap.winRate && ms.games > bestMap.games)) {
         bestMap = { map, winRate: wr, games: ms.games };
+      }
+      // Worst map needs a few games to be meaningful.
+      if (ms.games >= 3 && (!worstMap || wr < worstMap.winRate || (wr === worstMap.winRate && ms.games > worstMap.games))) {
+        worstMap = { map, winRate: wr, games: ms.games };
       }
       if (!mostPlayedMap || ms.games > mostPlayedMap.games) {
         mostPlayedMap = { map, games: ms.games };
       }
     }
+    mapBreakdown.sort((a, b) => b.games - a.games);
+    // If only one map qualifies, best and worst would be identical — drop worst.
+    if (worstMap && bestMap && worstMap.map === bestMap.map) worstMap = null;
 
     const stats = {
       totalMatches: results.length,
@@ -139,7 +210,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       currentStreakType,
       longestWinStreak,
       bestMap,
+      worstMap,
       mostPlayedMap,
+      mapBreakdown,
     };
 
     // Season medals: top-3 finishes in ended seasons (from season snapshots).
@@ -179,7 +252,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       verified: !!player.verified,
       supporter: !!player.supporterUntil && new Date(player.supporterUntil).getTime() > Date.now(),
       kd,
+      honor,
+      h2h,
+      highlight,
       elo: player.elo ?? 1000,
+      peakElo,
       wins,
       losses,
       gamesPlayed: player.gamesPlayed ?? games,

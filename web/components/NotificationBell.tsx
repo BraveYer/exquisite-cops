@@ -32,14 +32,49 @@ export default function NotificationBell() {
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const seen = useRef<Set<string>>(new Set());
+  const primed = useRef(false);
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) setNotifPerm(Notification.permission);
+  }, []);
+
+  const requestNotif = useCallback(async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    try {
+      const p = await Notification.requestPermission();
+      setNotifPerm(p);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications', { cache: 'no-store' });
       if (!res.ok) return;
       const d = await res.json();
-      setItems(d.items || []);
+      const its: Item[] = d.items || [];
+      setItems(its);
       setUnread(d.unread || 0);
+
+      // Desktop notification for items that arrived since the last poll.
+      if (primed.current && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        its.filter((it) => !it.read && !seen.current.has(it.id)).slice(0, 3).forEach((it) => {
+          try {
+            const n = new Notification(it.title || 'Exquisite COPS', { body: it.body || '', tag: it.id });
+            n.onclick = () => {
+              window.focus();
+              if (it.link) window.location.href = it.link;
+            };
+          } catch {
+            /* ignore */
+          }
+        });
+      }
+      its.forEach((it) => seen.current.add(it.id));
+      primed.current = true;
     } catch {
       /* ignore */
     }
@@ -107,6 +142,11 @@ export default function NotificationBell() {
               </button>
             ) : null}
           </div>
+          {notifPerm === 'default' && (
+            <button onClick={requestNotif} className="flex w-full items-center gap-2 border-b border-white/10 bg-cyan-500/[0.06] px-4 py-2.5 text-left text-xs font-bold text-cyan-300 hover:bg-cyan-500/10">
+              <Bell size={13} /> Enable desktop notifications
+            </button>
+          )}
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
               <p className="px-4 py-10 text-center text-sm font-bold uppercase tracking-widest text-gray-600">No notifications</p>

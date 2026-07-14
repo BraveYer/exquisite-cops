@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { censor } from '../../../lib/contentFilter';
 import { getServerSession } from 'next-auth/next';
 import { getDb } from '../../../lib/mongodb';
 import { authOptions } from '../../../lib/auth';
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const scope = (body?.scope || '').toString().trim();
-    const text = (body?.text || '').toString().trim().slice(0, MAX_LEN);
+    const text = censor((body?.text || '').toString().trim().slice(0, MAX_LEN));
     if (!scope) return NextResponse.json({ error: 'Missing scope' }, { status: 400 });
     if (!text) return NextResponse.json({ error: 'Empty message' }, { status: 400 });
 

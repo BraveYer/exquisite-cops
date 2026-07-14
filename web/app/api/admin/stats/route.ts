@@ -41,6 +41,9 @@ export async function GET() {
       totalTournaments,
       activeTournaments,
       totalClubs,
+      ongoingMatches,
+      newPlayersToday,
+      newPlayersWeek,
     ] = await Promise.all([
       db.collection('players').countDocuments({}),
       db.collection('players').countDocuments({ verified: true }),
@@ -51,6 +54,9 @@ export async function GET() {
       db.collection('tournaments').countDocuments({}),
       db.collection('tournaments').countDocuments({ status: { $in: ['open', 'live'] } }),
       db.collection('clans').countDocuments({}),
+      db.collection('matches').countDocuments({ status: { $in: ['ongoing', 'drafting', 'veto', 'pending_review'] } }),
+      db.collection('players').countDocuments({ createdAt: { $gte: todayStart } }),
+      db.collection('players').countDocuments({ createdAt: { $gte: since7 } }),
     ]);
 
     // Distinct active players (appeared in a completed match within the window)
@@ -121,8 +127,8 @@ export async function GET() {
     const wallets = epAgg[0]?.wallets ?? 0;
 
     return NextResponse.json({
-      players: { total: totalPlayers, verified: verifiedPlayers, active7: set7.size, active30: set30.size, searchingNow },
-      matches: { total: totalMatches, today: matchesToday, week: matchesWeek, perDay },
+      players: { total: totalPlayers, verified: verifiedPlayers, active7: set7.size, active30: set30.size, searchingNow, newToday: newPlayersToday, newWeek: newPlayersWeek },
+      matches: { total: totalMatches, today: matchesToday, week: matchesWeek, ongoing: ongoingMatches, perDay },
       retention: { dauPerDay, wau: set7.size, mau: set30.size },
       tournaments: { total: totalTournaments, active: activeTournaments },
       clubs: { total: totalClubs },

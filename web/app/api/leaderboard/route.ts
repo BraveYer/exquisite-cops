@@ -4,20 +4,58 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../../../lib/mongodb';
 
-export async function GET() {
+const PROJECTION = { _id: 0, discordId: 1, accountId: 1, copsName: 1, elo: 1, wins: 1, losses: 1, gamesPlayed: 1, level: 1, avatar: 1, cosmetics: 1 };
+
+export async function GET(req: Request) {
   try {
     const db = await getDb();
+    const sort = (new URL(req.url).searchParams.get('sort') || 'elo').toLowerCase();
 
-    // discordId is fetched only to compute recent form — it is NEVER returned.
-    const players = await db
-      .collection('players')
-      .find(
-        {},
-        { projection: { _id: 0, discordId: 1, accountId: 1, copsName: 1, elo: 1, wins: 1, losses: 1, gamesPlayed: 1, level: 1, avatar: 1, cosmetics: 1 } }
-      )
-      .sort({ elo: -1 })
-      .limit(50)
-      .toArray();
+    let players: any[] = [];
+    const kdByDiscord = new Map<string, any>();
+
+    if (sort === 'kd') {
+      // Aggregate K/D across all completed matches with recorded stats.
+      const agg = await db
+        .collection('matches')
+        .aggregate([
+          { $match: { status: 'completed', playerStats: { $exists: true, $ne: null } } },
+          { $project: { s: { $objectToArray: '$playerStats' } } },
+          { $unwind: '$s' },
+          {
+            $group: {
+              _id: '$s.k',
+              kills: { $sum: { $ifNull: ['$s.v.k', 0] } },
+              deaths: { $sum: { $ifNull: ['$s.v.d', 0] } },
+              assists: { $sum: { $ifNull: ['$s.v.a', 0] } },
+              matches: { $sum: 1 },
+            },
+          },
+          { $match: { matches: { $gte: 3 } } },
+        ])
+        .toArray();
+
+      const withRatio = agg.map((a: any) => ({
+        discordId: a._id as string,
+        kills: a.kills,
+        deaths: a.deaths,
+        assists: a.assists,
+        matches: a.matches,
+        ratio: a.deaths > 0 ? a.kills / a.deaths : a.kills,
+      }));
+      withRatio.sort((x, y) => y.ratio - x.ratio);
+      const top = withRatio.slice(0, 50);
+      for (const t of top) kdByDiscord.set(t.discordId, t);
+
+      const topIds = top.map((t) => t.discordId);
+      const pl = topIds.length
+        ? await db.collection('players').find({ discordId: { $in: topIds } }, { projection: PROJECTION }).toArray()
+        : [];
+      const plBy = new Map<string, any>(pl.map((p: any) => [p.discordId, p]));
+      players = top.map((t) => plBy.get(t.discordId)).filter(Boolean);
+    } else {
+      players = await db.collection('players').find({}, { projection: PROJECTION }).sort({ elo: -1 }).limit(50).toArray();
+    }
 
     const ids = players.map((p: any) => p.discordId).filter(Boolean);
     const idSet = new Set(ids);
@@ -72,22 +110,26 @@ export async function GET() {
       }
     }
 
-    const rows = players.map((p: any) => ({
-      accountId: p.accountId ?? null,
-      copsName: p.copsName ?? null,
-      avatar: p.avatar ?? null,
-      elo: p.elo ?? 1000,
-      wins: p.wins ?? 0,
-      losses: p.losses ?? 0,
-      gamesPlayed: p.gamesPlayed ?? 0,
-      level: p.level ?? 0,
-      form: formByDiscord.get(p.discordId) || [],
-      club: clubByDiscord.get(p.discordId) || null,
-      nameStyle: p.cosmetics?.name || null,
-      frame: p.cosmetics?.frame || null,
-    }));
+    const rows = players.map((p: any) => {
+      const kd = kdByDiscord.get(p.discordId);
+      return {
+        accountId: p.accountId ?? null,
+        copsName: p.copsName ?? null,
+        avatar: p.avatar ?? null,
+        elo: p.elo ?? 1000,
+        wins: p.wins ?? 0,
+        losses: p.losses ?? 0,
+        gamesPlayed: p.gamesPlayed ?? 0,
+        level: p.level ?? 0,
+        form: formByDiscord.get(p.discordId) || [],
+        club: clubByDiscord.get(p.discordId) || null,
+        nameStyle: p.cosmetics?.name || null,
+        frame: p.cosmetics?.frame || null,
+        kd: kd ? { ratio: Number(kd.ratio.toFixed(2)), kills: kd.kills, deaths: kd.deaths, matches: kd.matches } : null,
+      };
+    });
 
-    return NextResponse.json({ players: rows });
+    return NextResponse.json({ players: rows, sort });
   } catch (error) {
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
   }

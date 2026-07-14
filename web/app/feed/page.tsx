@@ -116,7 +116,8 @@ export default function FeedPage() {
   const [isStaff, setIsStaff] = useState(false);
 
   // Activity (matches + friend events)
-  const [scope, setScope] = useState<'following' | 'global'>('following');
+  const [scope, setScope] = useState<'following' | 'club' | 'global'>('following');
+  const [matchOnly, setMatchOnly] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -133,10 +134,10 @@ export default function FeedPage() {
     }
   }, []);
 
-  const loadActivity = useCallback(async (s: 'following' | 'global') => {
+  const loadActivity = useCallback(async (s: 'following' | 'club' | 'global') => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/feed?scope=${s}`, { cache: 'no-store' });
+      const res = await fetch(`/api/feed?scope=${s}${matchOnly ? '&kind=match' : ''}`, { cache: 'no-store' });
       const d = res.ok ? await res.json() : { items: [] };
       setItems(d.items || []);
     } catch {
@@ -144,7 +145,7 @@ export default function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [matchOnly]);
 
   useEffect(() => {
     loadPosts();
@@ -152,7 +153,7 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (view === 'activity') loadActivity(session ? scope : 'global');
-  }, [view, scope, session, loadActivity]);
+  }, [view, scope, matchOnly, session, loadActivity]);
 
   useEffect(() => {
     if (!session) {
@@ -284,18 +285,28 @@ export default function FeedPage() {
         ) : (
           <>
             {session && (
-              <div className="mb-6 inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-                {(['following', 'global'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setScope(s)}
-                    className={`rounded-full px-4 py-1.5 text-sm font-bold capitalize transition-colors ${
-                      scope === s ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {s === 'following' ? 'Following' : 'Global'}
-                  </button>
-                ))}
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
+                  {(['following', 'club', 'global'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setScope(s)}
+                      className={`rounded-full px-4 py-1.5 text-sm font-bold capitalize transition-colors ${
+                        scope === s ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {s === 'following' ? 'Following' : s === 'club' ? 'Club' : 'Global'}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setMatchOnly((v) => !v)}
+                  className={`rounded-full border px-4 py-1.5 text-sm font-bold transition-colors ${
+                    matchOnly ? 'border-cyan-400 bg-cyan-500/15 text-cyan-300' : 'border-white/10 bg-white/[0.03] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Matches only
+                </button>
               </div>
             )}
 

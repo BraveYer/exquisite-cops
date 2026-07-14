@@ -4,10 +4,13 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { COSMETICS, getCosmetic } from '../../../lib/shop';
-import { ArrowLeft, Loader2, ShieldCheck, ShieldQuestion, Swords, Medal, Award, Trophy, Flame, Zap, Sparkles, Crown, Lock, Gift, ShieldAlert, X, Star } from 'lucide-react';
+import { ArrowLeft, Loader2, ShieldCheck, ShieldQuestion, Swords, Medal, Award, Trophy, Flame, Zap, Sparkles, Crown, Lock, Gift, ShieldAlert, X, Star, ThumbsUp } from 'lucide-react';
+
+const COMMEND_LABELS: Record<string, string> = { aim: 'Great aim', igl: 'Shotcaller', team: 'Good teammate', clutch: 'Clutch' };
 import TierBadge from '../../../components/TierBadge';
 import PageBackground from '../../../components/PageBackground';
 import FriendButton from '../../../components/FriendButton';
+import ChallengeButton from '../../../components/ChallengeButton';
 import { CosmeticStyles, frameClass, nameClass } from '../../../components/ProfileCosmetics';
 import ProfileEffect from '../../../components/ProfileEffect';
 import { usePresence, PresenceLabel } from '../../../components/Presence';
@@ -29,12 +32,18 @@ type Profile = {
     currentStreakType: 'W' | 'L' | null;
     longestWinStreak: number;
     bestMap: { map: string; winRate: number; games: number } | null;
+    worstMap?: { map: string; winRate: number; games: number } | null;
     mostPlayedMap: { map: string; games: number } | null;
+    mapBreakdown?: { map: string; winRate: number; wins: number; games: number }[];
   };
   level?: number;
   kd?: { kills: number; deaths: number; assists: number; matches: number; ratio: number; avgKills: number } | null;
+  honor?: { total: number; byType: Record<string, number> };
+  h2h?: { wins: number; losses: number; games: number } | null;
+  highlight?: { matchId: string; map: string; result: 'win' | 'loss'; date: string | null } | null;
   verified?: boolean;
   elo?: number;
+  peakElo?: number;
   wins?: number;
   losses?: number;
   gamesPlayed?: number;
@@ -303,6 +312,7 @@ export default function ProfilePage() {
                   <Link href={`/compare?a=${id}`} className="flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-2 text-sm font-bold text-gray-300 transition-colors hover:bg-white/5">
                     <Swords size={14} /> Compare
                   </Link>
+                  <ChallengeButton targetAccountId={Number(id)} />
                   {session && (
                     <button onClick={() => { setGiftOpen(true); setGiftMsg(''); }} className="flex items-center gap-1.5 rounded-full border border-amber-500/30 px-4 py-2 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-500/10">
                       <Gift size={14} /> Gift
@@ -425,9 +435,38 @@ export default function ProfilePage() {
             {/* Tier */}
             <div className="mb-8 flex justify-center">
               <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-7 py-5">
-                <TierBadge elo={p.elo ?? 1000} px={68} showName showElo showProgress />
+                {(p.gamesPlayed ?? 0) < 5 ? (
+                  <div className="text-center">
+                    <p className="text-2xl font-black text-amber-300">Unranked</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-widest text-gray-500">Placements · {p.gamesPlayed ?? 0}/5</p>
+                    <div className="mx-auto mt-3 h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, ((p.gamesPlayed ?? 0) / 5) * 100)}%` }} />
+                    </div>
+                    <p className="mt-2 text-[11px] text-gray-600">{5 - (p.gamesPlayed ?? 0)} more match{5 - (p.gamesPlayed ?? 0) === 1 ? '' : 'es'} to get ranked · {p.elo ?? 1000} ELO</p>
+                  </div>
+                ) : (
+                  <TierBadge elo={p.elo ?? 1000} px={68} showName showElo showProgress />
+                )}
               </div>
             </div>
+
+            {/* Highlight match */}
+            {p.highlight && (
+              <Link href={`/match/${p.highlight.matchId}`} className="mb-8 block rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/[0.08] to-transparent px-5 py-4 transition-colors hover:border-amber-500/40">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Star size={20} className="fill-amber-400 text-amber-400" />
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-widest text-amber-300">Highlight match</p>
+                      <p className="text-xs text-gray-400">{p.highlight.map}{p.highlight.date ? ` · ${new Date(p.highlight.date).toLocaleDateString()}` : ''}</p>
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${p.highlight.result === 'win' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                    {p.highlight.result}
+                  </span>
+                </div>
+              </Link>
+            )}
 
             {/* Recent form */}
             {p.history && p.history.length > 0 && (
@@ -466,10 +505,35 @@ export default function ProfilePage() {
             {/* Overview tab */}
             {tab === 'overview' && (
               <>
+                {p.h2h && (
+                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-500/25 bg-gradient-to-r from-violet-500/[0.08] to-transparent px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <Swords size={20} className="text-violet-400" />
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-widest text-violet-300">Head-to-head vs you</p>
+                        <p className="text-xs text-gray-400">Across {p.h2h.games} match{p.h2h.games === 1 ? '' : 'es'} on opposite teams</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-emerald-400">{p.h2h.wins}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">You won</p>
+                      </div>
+                      <span className="text-lg font-black text-gray-600">–</span>
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-red-400">{p.h2h.losses}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">You lost</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="rounded-3xl border border-cyan-500/30 bg-cyan-500/[0.07] p-5 text-center">
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-400">Rating</p>
                 <p className="text-3xl font-black">{p.elo ?? 1000}</p>
+                {p.peakElo != null && p.peakElo > (p.elo ?? 1000) && (
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-cyan-500/70">Peak {p.peakElo}</p>
+                )}
               </div>
               <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-center">
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Wins</p>
@@ -526,6 +590,14 @@ export default function ProfilePage() {
                     value={p.stats.bestMap ? p.stats.bestMap.map : '—'}
                     sub={p.stats.bestMap ? `${p.stats.bestMap.winRate}% · ${p.stats.bestMap.games} games` : undefined}
                   />
+                  {p.stats.worstMap && (
+                    <StatTile
+                      label="Worst map"
+                      value={p.stats.worstMap.map}
+                      sub={`${p.stats.worstMap.winRate}% · ${p.stats.worstMap.games} games`}
+                      color="text-red-400"
+                    />
+                  )}
                   <StatTile
                     label="Most played"
                     value={p.stats.mostPlayedMap ? p.stats.mostPlayedMap.map : '—'}
@@ -557,6 +629,51 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       <p className="mt-4 text-[11px] text-gray-600">Across {p.kd.matches} match{p.kd.matches === 1 ? '' : 'es'} with recorded stats.</p>
+                    </div>
+                  </>
+                )}
+
+                {p.honor && p.honor.total > 0 && (
+                  <>
+                    <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">Honor</h2>
+                    <div className="mb-10 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-5">
+                      <div className="flex items-center gap-3">
+                        <ThumbsUp className="text-emerald-400" size={22} />
+                        <div>
+                          <p className="text-3xl font-black text-emerald-400">{p.honor.total}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Commends received</p>
+                        </div>
+                      </div>
+                      {Object.keys(p.honor.byType).length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {Object.entries(p.honor.byType).map(([type, n]) => (
+                            <span key={type} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">
+                              {COMMEND_LABELS[type] || type} · {n}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {p.stats.mapBreakdown && p.stats.mapBreakdown.length > 1 && (
+                  <>
+                    <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">Map performance</h2>
+                    <div className="mb-10 space-y-2">
+                      {p.stats.mapBreakdown.map((m) => (
+                        <div key={m.map} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                          <div className="mb-1.5 flex items-center justify-between text-sm">
+                            <span className="font-bold text-white">{m.map}</span>
+                            <span className="text-gray-500">
+                              <span className={m.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}>{m.winRate}%</span> · {m.wins}/{m.games}
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                            <div className={`h-full rounded-full ${m.winRate >= 50 ? 'bg-emerald-400' : 'bg-red-400'}`} style={{ width: `${m.winRate}%` }} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </>
                 )}

@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { censor } from '../../../lib/contentFilter';
 import { getServerSession } from 'next-auth/next';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../../../lib/mongodb';
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
 
     if (action === 'create') {
       const postId = (body?.postId || '').toString();
-      const text = (body?.text || '').toString().trim().slice(0, MAX);
+      const text = censor((body?.text || '').toString().trim().slice(0, MAX));
       if (!postId || !text) return NextResponse.json({ error: 'Empty comment' }, { status: 400 });
       const sanc = await activeSanction(db, myId, ['mute', 'ban']);
       if (sanc) return NextResponse.json({ error: sanctionMessage(sanc) }, { status: 403 });

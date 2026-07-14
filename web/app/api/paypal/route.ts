@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { getDb } from '../../../lib/mongodb';
 import { authOptions } from '../../../lib/auth';
-import { getPack } from '../../../lib/shop';
+import { getPack, getBundle } from '../../../lib/shop';
 
 const CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const SECRET = process.env.PAYPAL_SECRET || '';
@@ -43,7 +43,13 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const action = (body?.action || '').toString();
     const pack = getPack((body?.packId || '').toString());
-    if (!pack) return NextResponse.json({ error: 'Pack not found' }, { status: 404 });
+    const bundle = getBundle((body?.bundleId || '').toString());
+    if (!pack && !bundle) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+    // Unified product fields (EP pack or cosmetic bundle).
+    const prodId = pack ? pack.id : bundle!.id;
+    const prodUsd = pack ? pack.usd : bundle!.usd;
+    const prodDesc = pack ? `${pack.ep} EP — Exquisite Cops` : `${bundle!.name} — Exquisite Cops`;
 
     const token = await accessToken();
     if (!token) return NextResponse.json({ error: 'PayPal auth failed' }, { status: 502 });
@@ -56,9 +62,9 @@ export async function POST(req: Request) {
           intent: 'CAPTURE',
           purchase_units: [
             {
-              custom_id: `${myId}:${pack.id}`,
-              description: `${pack.ep} EP — Exquisite Cops`,
-              amount: { currency_code: CURRENCY, value: pack.usd.toFixed(2) },
+              custom_id: `${myId}:${prodId}`,
+              description: prodDesc,
+              amount: { currency_code: CURRENCY, value: prodUsd.toFixed(2) },
             },
           ],
         }),
@@ -75,7 +81,7 @@ export async function POST(req: Request) {
       const db = await getDb();
       // Idempotency: if we've already credited this order, don't double-credit.
       const existing = await db.collection('paypalOrders').findOne({ orderId });
-      if (existing) return NextResponse.json({ ok: true, credited: existing.ep, already: true });
+      if (existing) return NextResponse.json({ ok: true, already: true, credited: existing.ep });
 
       const r = await fetch(`${BASE}/v2/checkout/orders/${orderId}/capture`, {
         method: 'POST',
@@ -84,27 +90,37 @@ export async function POST(req: Request) {
       const d = await r.json();
       if (!r.ok || d.status !== 'COMPLETED') return NextResponse.json({ error: 'Payment not completed' }, { status: 402 });
 
-      // Verify the captured amount matches the pack (guard against tampering).
+      // Verify the captured amount matches the product (guard against tampering).
       const cap = d?.purchase_units?.[0]?.payments?.captures?.[0];
       const paid = cap?.amount?.value;
       const currency = cap?.amount?.currency_code;
-      if (paid !== pack.usd.toFixed(2) || currency !== CURRENCY) {
+      if (paid !== prodUsd.toFixed(2) || currency !== CURRENCY) {
         return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 });
       }
 
-      // Record first (unique orderId) to prevent race double-credit, then credit EP.
+      // Record first (unique orderId) to prevent race double-credit.
       try {
-        await db.collection('paypalOrders').insertOne({ orderId, userId: myId, packId: pack.id, ep: pack.ep, capturedAt: new Date() });
+        await db.collection('paypalOrders').insertOne({ orderId, userId: myId, packId: prodId, kind: pack ? 'pack' : 'bundle', ep: pack ? pack.ep : 0, usd: prodUsd, capturedAt: new Date() });
       } catch {
-        // Duplicate key (already recorded) — treat as already credited.
-        return NextResponse.json({ ok: true, credited: pack.ep, already: true });
+        return NextResponse.json({ ok: true, already: true });
       }
+
+      if (pack) {
+        await db.collection('economy').updateOne(
+          { discordId: myId },
+          { $inc: { balance: pack.ep }, $setOnInsert: { items: [], equipped: { frame: null, name: null, theme: null }, claims: {} } },
+          { upsert: true }
+        );
+        return NextResponse.json({ ok: true, credited: pack.ep });
+      }
+
+      // Bundle: grant all its cosmetics.
       await db.collection('economy').updateOne(
         { discordId: myId },
-        { $inc: { balance: pack.ep }, $setOnInsert: { items: [], equipped: { frame: null, name: null, theme: null }, claims: {} } },
+        { $addToSet: { items: { $each: bundle!.items } }, $setOnInsert: { balance: 0, equipped: { frame: null, name: null, theme: null }, claims: {} } } as any,
         { upsert: true }
       );
-      return NextResponse.json({ ok: true, credited: pack.ep });
+      return NextResponse.json({ ok: true, granted: bundle!.items });
     }
 
     return NextResponse.json({ error: 'Bad action' }, { status: 400 });

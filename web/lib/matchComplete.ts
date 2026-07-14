@@ -64,6 +64,19 @@ export async function completeMatch(db: Db, matchId: string, winner: 'A' | 'B') 
     });
   }
 
+  // Staked 1v1 challenge: the winning side takes the whole pot.
+  const stake = Math.max(0, Math.floor(match.stake || 0));
+  if (stake > 0) {
+    const pot = stake * allIds.length;
+    const winIds = winner === 'A' ? teamAIds : teamBIds;
+    if (winIds.length > 0) {
+      const share = Math.floor(pot / winIds.length);
+      for (const id of winIds) {
+        await db.collection('economy').updateOne({ discordId: id }, { $inc: { balance: share } });
+      }
+    }
+  }
+
   await db.collection('matches').updateOne(
     { matchId },
     { $set: { status: 'completed', winner, completedAt: new Date(), result: { winner, changes } } }

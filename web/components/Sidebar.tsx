@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import {
   Home, Trophy, User, Settings, Shield, LogOut, Menu, X, Award, History, Users, Newspaper, Sparkles,
-  MessageCircle, Swords, Medal, ChevronDown, PanelLeftClose, PanelLeftOpen, ShoppingBag, Coins, Ticket, Radar, Search,
+  MessageCircle, Swords, Medal, ChevronDown, PanelLeftClose, PanelLeftOpen, ShoppingBag, Coins, Ticket, Radar, Search, Eye, Activity,
 } from 'lucide-react';
 import { getTier } from '../lib/tiers';
 
@@ -112,6 +112,7 @@ export default function Sidebar() {
   const competeItems: Item[] = [
     { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
     { href: '/matches', label: 'Matches', icon: History },
+    { href: '/watch', label: 'Watch', icon: Eye },
     ...(ff('tournaments') ? [{ href: '/tournaments', label: 'Tournaments', icon: Medal }] : []),
     ...(ff('battlepass') ? [{ href: '/battlepass', label: 'Battle Pass', icon: Ticket }] : []),
     { href: '/season', label: 'Season', icon: Award },
@@ -120,11 +121,13 @@ export default function Sidebar() {
     ...(ff('feed') ? [{ href: '/feed', label: 'Feed', icon: Newspaper }] : []),
     { href: '/friends', label: 'Friends', icon: Users },
     { href: '/lfg', label: 'LFG', icon: Radar },
+    ...(accountId != null ? [{ href: '/challenges', label: 'Challenges', icon: Swords }] : []),
     ...(ff('messages') ? [{ href: '/messages', label: 'Messages', icon: MessageCircle, badge: dmUnread }] : []),
     ...(ff('clubs') ? [{ href: '/clans', label: 'Clubs', icon: Swords }] : []),
     { href: '/updates', label: "What's New", icon: Sparkles, dot: true },
   ];
   const bottomItems: Item[] = [
+    { href: '/status', label: 'Status', icon: Activity },
     { href: '/settings', label: 'Settings', icon: Settings },
     ...(staff ? [{ href: '/admin', label: 'Admin', icon: Shield }] : []),
   ];

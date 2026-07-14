@@ -1,8 +1,10 @@
 const ELO = {
   DEFAULT: 1000,
-  K_PROVISIONAL: 40,   // first 10 games
+  K_PLACEMENT: 60,     // first 5 games (placement) — converge to true skill fast
+  K_PROVISIONAL: 40,   // games 5-10
   K_STANDARD: 25,
   K_HIGH: 15,          // rating >= 2000
+  PLACEMENT_GAMES: 5,
   PROVISIONAL_GAMES: 10,
   HIGH_THRESHOLD: 2000,
   FLOOR: 100,
@@ -13,6 +15,7 @@ function expectedScore(rating, opponentRating) {
 }
 
 function kFactor(rating, gamesPlayed) {
+  if (gamesPlayed < ELO.PLACEMENT_GAMES) return ELO.K_PLACEMENT;
   if (gamesPlayed < ELO.PROVISIONAL_GAMES) return ELO.K_PROVISIONAL;
   if (rating >= ELO.HIGH_THRESHOLD) return ELO.K_HIGH;
   return ELO.K_STANDARD;

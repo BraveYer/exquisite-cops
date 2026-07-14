@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, ShieldAlert, Users, Activity, Radio, Swords, Trophy, Medal, Shield, Coins, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Loader2, ShieldAlert, Users, Activity, Radio, Swords, Trophy, Medal, Shield, Coins, TrendingUp, DollarSign } from 'lucide-react';
 import PageBackground from '../../../components/PageBackground';
 import AdminMatchStats from '../../../components/AdminMatchStats';
 import AdminUpdates from '../../../components/AdminUpdates';
+import AdminStaffLog from '../../../components/AdminStaffLog';
 
 type Stats = {
-  players: { total: number; verified: number; active7: number; active30: number; searchingNow: number };
-  matches: { total: number; today: number; week: number; perDay: { date: string; count: number }[] };
+  players: { total: number; verified: number; active7: number; active30: number; searchingNow: number; newToday?: number; newWeek?: number };
+  matches: { total: number; today: number; week: number; ongoing?: number; perDay: { date: string; count: number }[] };
   retention?: { dauPerDay: { date: string; count: number }[]; wau: number; mau: number };
   tournaments: { total: number; active: number };
   clubs: { total: number };
   economy: { totalEp: number; wallets: number };
+  revenue?: { total: number; today: number; week: number; month: number; orders: number; perDay: { date: string; amount: number }[]; currency: string };
   topMaps: { map: string; count: number }[];
 };
 
@@ -32,27 +34,43 @@ function StatCard({ icon: Icon, label, value, sub, color = '#22d3ee' }: { icon: 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading');
+  const [refreshedAt, setRefreshedAt] = useState<number>(0);
 
   useEffect(() => {
-    fetch('/api/admin/stats', { cache: 'no-store' })
-      .then((r) => {
-        if (r.status === 401 || r.status === 403) {
-          setState('forbidden');
-          return null;
-        }
-        if (!r.ok) {
-          setState('error');
-          return null;
-        }
-        return r.json();
-      })
-      .then((d) => {
-        if (d) {
-          setStats(d);
-          setState('ok');
-        }
-      })
-      .catch(() => setState('error'));
+    let active = true;
+    const load = () =>
+      fetch('/api/admin/stats', { cache: 'no-store' })
+        .then((r) => {
+          if (r.status === 401 || r.status === 403) {
+            if (active) setState('forbidden');
+            return null;
+          }
+          if (!r.ok) {
+            if (active) setState((s) => (s === 'ok' ? 'ok' : 'error'));
+            return null;
+          }
+          return r.json();
+        })
+        .then((d) => {
+          if (d && active) {
+            setStats(d);
+            setState('ok');
+            setRefreshedAt(Date.now());
+          }
+        })
+        .catch(() => {
+          if (active) setState((s) => (s === 'ok' ? 'ok' : 'error'));
+        });
+
+    load();
+    const iv = setInterval(load, 20000); // live refresh every 20s
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   return (
@@ -63,9 +81,20 @@ export default function AdminDashboard() {
           <ArrowLeft size={16} /> Admin
         </Link>
 
-        <div className="mb-6">
-          <div className="mb-1 text-sm font-bold uppercase tracking-[0.3em] text-cyan-500">Analytics</div>
-          <h1 className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-4xl font-black tracking-tighter text-transparent">Dashboard</h1>
+        <div className="mb-6 flex items-end justify-between">
+          <div>
+            <div className="mb-1 text-sm font-bold uppercase tracking-[0.3em] text-cyan-500">Analytics</div>
+            <h1 className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-4xl font-black tracking-tighter text-transparent">Dashboard</h1>
+          </div>
+          {state === 'ok' && (
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-emerald-400">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              </span>
+              Live
+            </div>
+          )}
         </div>
 
         {state === 'loading' && (
@@ -88,12 +117,32 @@ export default function AdminDashboard() {
               <StatCard icon={Users} label="Players" value={stats.players.total.toLocaleString()} sub={`${stats.players.verified} verified`} />
               <StatCard icon={Activity} label="Active 7d" value={stats.players.active7.toLocaleString()} sub={`${stats.players.active30} in 30d`} color="#34d399" />
               <StatCard icon={Radio} label="Searching now" value={stats.players.searchingNow} sub="in queue" color="#f472b6" />
+              <StatCard icon={Swords} label="Live matches" value={stats.matches.ongoing ?? 0} sub="in progress" color="#f472b6" />
+              <StatCard icon={Users} label="New today" value={stats.players.newToday ?? 0} sub={`${stats.players.newWeek ?? 0} this week`} color="#34d399" />
               <StatCard icon={Swords} label="Matches today" value={stats.matches.today.toLocaleString()} color="#f59e0b" />
               <StatCard icon={TrendingUp} label="Matches 7d" value={stats.matches.week.toLocaleString()} color="#f59e0b" />
               <StatCard icon={Swords} label="Total matches" value={stats.matches.total.toLocaleString()} />
               <StatCard icon={Medal} label="Tournaments" value={stats.tournaments.active} sub={`${stats.tournaments.total} all-time`} color="#a78bfa" />
               <StatCard icon={Shield} label="Clubs" value={stats.clubs.total.toLocaleString()} color="#38bdf8" />
               <StatCard icon={Coins} label="EP in circulation" value={stats.economy.totalEp.toLocaleString()} sub={`${stats.economy.wallets} wallets`} color="#fcd34d" />
+              {stats.revenue && (
+                <>
+                  <StatCard
+                    icon={DollarSign}
+                    label="Revenue"
+                    value={`${stats.revenue.currency === 'EUR' ? '€' : '$'}${stats.revenue.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    sub={`${stats.revenue.orders} orders`}
+                    color="#4ade80"
+                  />
+                  <StatCard
+                    icon={DollarSign}
+                    label="Revenue (30d)"
+                    value={`${stats.revenue.currency === 'EUR' ? '€' : '$'}${stats.revenue.month.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    sub={`${stats.revenue.currency === 'EUR' ? '€' : '$'}${stats.revenue.today.toFixed(2)} today`}
+                    color="#4ade80"
+                  />
+                </>
+              )}
             </div>
 
             {/* Matches per day */}
@@ -119,6 +168,38 @@ export default function AdminDashboard() {
                 );
               })()}
             </div>
+
+            {/* Revenue per day */}
+            {stats.revenue && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-gray-400">Revenue — last 14 days</h2>
+                  <span className="text-xs font-bold text-emerald-400">
+                    {stats.revenue.currency === 'EUR' ? '€' : '$'}{stats.revenue.week.toFixed(2)} this week
+                  </span>
+                </div>
+                {(() => {
+                  const cur = stats.revenue!.currency === 'EUR' ? '€' : '$';
+                  const max = Math.max(0.01, ...stats.revenue!.perDay.map((d) => d.amount));
+                  return (
+                    <div className="flex h-40 items-end gap-1.5">
+                      {stats.revenue!.perDay.map((d) => (
+                        <div key={d.date} className="flex flex-1 flex-col items-center gap-1.5">
+                          <div className="flex w-full flex-1 items-end">
+                            <div
+                              className="w-full rounded-t bg-gradient-to-t from-emerald-500/70 to-emerald-400/40"
+                              style={{ height: `${(d.amount / max) * 100}%`, minHeight: d.amount > 0 ? 4 : 0 }}
+                              title={`${cur}${d.amount.toFixed(2)}`}
+                            />
+                          </div>
+                          <span className="text-[9px] font-bold text-gray-600">{d.date.slice(5)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Active players per day (DAU) */}
             {stats.retention && (
@@ -175,6 +256,8 @@ export default function AdminDashboard() {
             )}
 
             <AdminUpdates />
+
+            <AdminStaffLog />
 
             <AdminMatchStats />
           </div>

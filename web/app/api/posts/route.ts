@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { censor } from '../../../lib/contentFilter';
 import { getServerSession } from 'next-auth/next';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../../../lib/mongodb';
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
     if (action === 'create') {
       const sanc = await activeSanction(db, myId, ['mute', 'ban']);
       if (sanc) return NextResponse.json({ error: sanctionMessage(sanc) }, { status: 403 });
-      const text = (body?.text || '').toString().trim().slice(0, MAX_TEXT);
+      const text = censor((body?.text || '').toString().trim().slice(0, MAX_TEXT));
       let mediaUrl = (body?.mediaUrl || '').toString().trim().slice(0, MAX_URL);
       // allow absolute http(s) links (image/clip URLs) OR our own uploaded-image paths
       if (mediaUrl && !/^https?:\/\//i.test(mediaUrl) && !mediaUrl.startsWith('/api/uploads/')) mediaUrl = '';

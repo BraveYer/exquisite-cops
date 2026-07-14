@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { rateLimit } from '../../../lib/rateLimit';
 import { getServerSession } from 'next-auth/next';
 import { getDb } from '../../../lib/mongodb';
 import { authOptions } from '../../../lib/auth';
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
     if (!SCOPES.includes(scope)) return NextResponse.json({ error: 'Bad scope' }, { status: 400 });
     if (!messageId) return NextResponse.json({ error: 'Missing message' }, { status: 400 });
     if (!EMOJIS.includes(emoji)) return NextResponse.json({ error: 'Bad emoji' }, { status: 400 });
+    const rl = rateLimit(`react:${myId}`, 15, 20000);
+    if (!rl.ok) return NextResponse.json({ error: `Slow down — wait ${rl.retryAfter}s.` }, { status: 429 });
 
     const db = await getDb();
     const existing = await db.collection('reactions').findOne({ scope, messageId, emoji });

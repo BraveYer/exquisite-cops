@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '../../../../lib/mongodb';
 import { authOptions } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
+import { logStaff } from '../../../../lib/staffLog';
 
 const TYPES = ['warn', 'mute', 'ban', 'note'];
 
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     if (!TYPES.includes(type)) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
     if (reason.length < 2) return NextResponse.json({ error: 'Add a reason' }, { status: 400 });
 
-    const target = await ctx.db.collection('players').findOne({ accountId }, { projection: { discordId: 1 } });
+    const target = await ctx.db.collection('players').findOne({ accountId }, { projection: { discordId: 1, copsName: 1 } });
     if (!target) return NextResponse.json({ error: 'Player not found' }, { status: 404 });
 
     const expiresAt = Number.isFinite(durationHours) && durationHours > 0 ? new Date(Date.now() + durationHours * 3600000) : null;
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
       createdAt: new Date(),
       expiresAt,
     });
+    logStaff(ctx.db, { actorId: ctx.myId, actorName: ctx.me?.copsName, action: type, target: String(accountId), targetName: target.copsName, details: expiresAt ? `${reason} (${durationHours}h)` : reason });
 
     if (type !== 'note' && target.discordId) {
       const label = type === 'ban' ? 'banned' : type === 'mute' ? 'muted' : 'warned';
@@ -95,6 +97,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
     }
     await ctx.db.collection('sanctions').deleteOne({ _id: oid });
+    logStaff(ctx.db, { actorId: ctx.myId, actorName: ctx.me?.copsName, action: 'lift sanction', details: `sanction #${id.slice(-6)}` });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
