@@ -155,7 +155,7 @@ export async function POST(req: Request) {
     if (action === 'decline') {
       if (ch.targetId !== myId) return NextResponse.json({ error: 'Not your challenge' }, { status: 403 });
       await db.collection('challenges').updateOne({ _id: oid }, { $set: { status: 'declined' } });
-      await notify(db, ch.challengerId, { type: 'challenge', title: `${ch.targetName} declined your 1v1`, body: null, link: null });
+      await notify(db, ch.challengerId, { type: 'challenge', title: `${ch.targetName} declined your 1v1`, link: null });
       return NextResponse.json({ ok: true });
     }
 
